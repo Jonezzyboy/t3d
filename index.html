@@ -6,7 +6,7 @@
 <title>T3D — Test Driven Development Daily</title>
 <meta name="description" content="A daily TDD kata: start from a function stub, reveal the tests one at a time, and turn them all green in as few runs as you can.">
 <link rel="canonical" href="https://jonezzyboy.github.io/t3d/">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧪</text></svg>">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23142033'/%3E%3Cpath d='M13 10h38v10H37.5v24h-11V20H13z' fill='%23fff'/%3E%3Crect x='11' y='49' width='42' height='7' rx='1.5' fill='%23ffd23f'/%3E%3C/svg%3E">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2790049582805492"
      crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,18 +28,28 @@
   --pass-bg: #e2f4ea;
   --fail: #c42f28;
   --fail-bg: #fbe6e4;
+  --warn: #9a5b00;
   --lock: #9aa8ba;
+  --sel: rgba(47, 79, 196, 0.2);
+  --tk-kw: #2f4fc4;
+  --tk-str: #a35200;
+  --tk-num: #b02a6b;
+  --tk-com: #8592a6;
+  --tk-fn: #0b7285;
   --shadow: 0 1px 0 rgba(20, 32, 51, 0.06), 0 8px 24px -12px rgba(20, 32, 51, 0.18);
   --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
   --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --paper: #0c1524; --grid: rgba(120, 160, 230, 0.07); --panel: #131f35; --code-bg: #0e1828;
     --ink: #e2e9f4; --muted: #8fa1bb; --rule: #263756; --hl: #ffd23f; --hl-ink: #1d1600;
     --pass: #4cc483; --pass-bg: rgba(76, 196, 131, 0.13); --fail: #ff6f61; --fail-bg: rgba(255, 111, 97, 0.13);
-    --lock: #5b6d89; --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+    --warn: #ffb547; --lock: #5b6d89; --sel: rgba(143, 176, 255, 0.28);
+    --tk-kw: #8fb0ff; --tk-str: #f5b971; --tk-num: #ff8cc0; --tk-com: #62738f; --tk-fn: #66d4e6;
+    --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
     color-scheme: dark;
   }
 }
@@ -47,7 +57,9 @@
   --paper: #0c1524; --grid: rgba(120, 160, 230, 0.07); --panel: #131f35; --code-bg: #0e1828;
   --ink: #e2e9f4; --muted: #8fa1bb; --rule: #263756; --hl: #ffd23f; --hl-ink: #1d1600;
   --pass: #4cc483; --pass-bg: rgba(76, 196, 131, 0.13); --fail: #ff6f61; --fail-bg: rgba(255, 111, 97, 0.13);
-  --lock: #5b6d89; --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  --warn: #ffb547; --lock: #5b6d89; --sel: rgba(143, 176, 255, 0.28);
+  --tk-kw: #8fb0ff; --tk-str: #f5b971; --tk-num: #ff8cc0; --tk-com: #62738f; --tk-fn: #66d4e6;
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
   color-scheme: dark;
 }
 
@@ -69,6 +81,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--hl); outline-offset: 2px; }
 code, pre, .mono { font-family: var(--f-mono); }
+kbd { font: 400 0.85em/1 var(--f-mono); padding: 1px 5px; border: 1px solid var(--rule); border-radius: 4px; background: var(--code-bg); }
 
 /* Header */
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; }
@@ -133,6 +146,7 @@ code, pre, .mono { font-family: var(--f-mono); }
   display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start;
   padding: 10px 12px; border-radius: 10px; border: 1px solid var(--rule); background: var(--code-bg);
 }
+.t > div { min-width: 0; display: grid; gap: 6px; }
 .t .dot {
   width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
   font: 600 12px/1 var(--f-mono); border: 1.5px dashed var(--lock); color: var(--lock);
@@ -146,7 +160,21 @@ code, pre, .mono { font-family: var(--f-mono); }
 .t .expr { font: 400 13px/1.5 var(--f-mono); overflow-wrap: anywhere; white-space: pre-wrap; }
 .t .expr .fn { font-weight: 600; }
 .t .expr .arrow { color: var(--muted); padding-inline: 4px; }
-.t .got { margin-top: 4px; font: 400 12px/1.45 var(--f-mono); color: var(--fail); overflow-wrap: anywhere; white-space: pre-wrap; }
+.t .got { font: 400 12px/1.45 var(--f-mono); color: var(--fail); overflow-wrap: anywhere; white-space: pre-wrap; }
+.jump {
+  border: 1px solid currentColor; background: transparent; border-radius: 4px; padding: 0 5px; margin-left: 4px;
+  font: 600 11px/1.5 var(--f-mono); color: var(--fail);
+}
+.diff { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; font: 400 12px/1.5 var(--f-mono); }
+.diff span { color: var(--muted); }
+.diff code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff mark { background: var(--fail); color: var(--panel); border-radius: 2px; padding-inline: 1px; }
+.diff mark.end { background: transparent; box-shadow: inset 0 -2px 0 var(--fail); }
+.tlogs summary { cursor: pointer; font: 500 12px/1.4 var(--f-body); color: var(--muted); }
+.tlogs pre {
+  margin: 4px 0 0; padding: 6px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--rule);
+  font: 400 12px/1.5 var(--f-mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow: auto;
+}
 .t.locked { background: transparent; border-style: dashed; color: var(--lock); }
 .t.locked .expr { font-family: var(--f-body); font-size: 13px; }
 .next-btn {
@@ -165,36 +193,66 @@ code, pre, .mono { font-family: var(--f-mono); }
 .tools { display: flex; gap: 8px; }
 .btn-ghost { border: 1px solid var(--rule); background: transparent; border-radius: 9px; padding: 8px 12px; font-size: 13px; }
 .btn-ghost.armed { border-color: var(--fail); color: var(--fail); }
+.btn-ghost.small { padding: 3px 8px; font-size: 11px; border-radius: 6px; letter-spacing: 0.04em; }
 .run-btn {
   border: 0; border-radius: 9px; padding: 8px 16px; background: var(--hl); color: var(--hl-ink);
   font: 600 14px/1.2 var(--f-body); display: inline-flex; gap: 10px; align-items: center;
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
 }
-.run-btn kbd { font: 400 11px/1 var(--f-mono); opacity: 0.7; }
+.run-btn kbd { border: 0; background: none; padding: 0; font-size: 11px; opacity: 0.7; }
 .run-btn:active { transform: translateY(1px); }
 .run-btn[aria-busy="true"] { opacity: 0.7; }
 
 .editor { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--code-bg); height: 380px; overflow: hidden; }
 .gutter-wrap { overflow: hidden; border-right: 1px solid var(--rule); }
 .gutter {
-  margin: 0; padding: 14px 10px 14px 14px; text-align: right; color: var(--lock);
+  padding: 14px 10px 14px 14px; text-align: right; color: var(--lock);
   font: 400 13.5px/1.6 var(--f-mono); user-select: none; font-variant-numeric: tabular-nums;
 }
+.gl { display: block; }
+.gl.bad { color: var(--fail); font-weight: 600; }
+.code-wrap { position: relative; min-width: 0; overflow: hidden; }
+.hl, #code {
+  margin: 0; padding: 14px 16px; border: 0; font: 400 13.5px/1.6 var(--f-mono); letter-spacing: 0;
+  tab-size: 2; white-space: pre; font-variant-ligatures: none;
+}
+.hl { position: absolute; top: 0; left: 0; min-width: 100%; width: max-content; pointer-events: none; color: var(--ink); }
+.ln { display: block; }
+.hl .ln { margin-inline: -16px; padding-inline: 16px; }
+.hl .ln.bad { background: var(--fail-bg); box-shadow: inset 3px 0 0 var(--fail); }
 #code {
-  width: 100%; height: 100%; resize: none; border: 0; outline: none; background: transparent; color: var(--ink);
-  padding: 14px 16px; font: 400 13.5px/1.6 var(--f-mono); tab-size: 2; white-space: pre; overflow: auto;
+  position: relative; display: block; width: 100%; height: 100%; resize: none; outline: none; background: transparent;
+  color: transparent; -webkit-text-fill-color: transparent; caret-color: var(--ink); overflow: auto;
 }
+#code::selection { background: var(--sel); }
 #code:focus-visible { box-shadow: inset 0 0 0 2px var(--hl); }
+.tk-kw { color: var(--tk-kw); font-weight: 600; }
+.tk-str, .tk-re { color: var(--tk-str); }
+.tk-num, .tk-lit { color: var(--tk-num); }
+.tk-com { color: var(--tk-com); font-style: italic; }
+.tk-fn { color: var(--tk-fn); }
 
-.console { border-top: 1px solid var(--rule); }
-.console-head { display: flex; justify-content: space-between; padding: 8px 16px; font: 500 11px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
-.console pre {
-  margin: 0; padding: 4px 16px 14px; max-height: 170px; overflow: auto; font: 400 12.5px/1.55 var(--f-mono);
-  white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted);
+.console { border-top: 1px solid var(--rule); display: grid; }
+.console-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px 8px 16px; font: 500 11px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+#out {
+  margin: 0; padding: 4px 16px 10px; height: 200px; overflow: auto; font: 400 12.5px/1.55 var(--f-mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted); font-variant-ligatures: none;
 }
-.console .err { color: var(--fail); }
-.console .ok { color: var(--pass); }
-.console .lg { color: var(--ink); }
+#out > span { display: block; }
+#out .c-head { color: var(--ink); font-weight: 600; border-top: 1px dashed var(--rule); padding-top: 6px; margin-top: 6px; }
+#out .c-head:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+#out .c-log, #out .c-lg, #out .c-out { color: var(--ink); }
+#out .c-warn { color: var(--warn); }
+#out .c-error, #out .c-err { color: var(--fail); }
+#out .c-ok { color: var(--pass); }
+#out .c-in { color: var(--tk-kw); }
+.probe { display: flex; align-items: center; gap: 8px; padding: 8px 12px 8px 16px; border-top: 1px solid var(--rule); background: var(--code-bg); }
+.probe label { font: 600 14px/1 var(--f-mono); color: var(--tk-kw); }
+#probe {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink);
+  font: 400 13px/1.6 var(--f-mono); font-variant-ligatures: none;
+}
+.probe-hint { padding: 0 16px 10px; background: var(--code-bg); font-size: 12px; color: var(--muted); }
 
 /* Finish */
 .finish { padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px 28px; align-items: start; border: 2px solid var(--ink); }
@@ -203,19 +261,28 @@ code, pre, .mono { font-family: var(--f-mono); }
 .finish p { margin: 0; color: var(--muted); max-width: 60ch; }
 .verdict { display: flex; gap: 26px; margin-top: 14px; flex-wrap: wrap; }
 .share { display: grid; gap: 10px; justify-items: start; }
-.grid-out { margin: 0; font: 400 15px/1.25 var(--f-mono); padding: 12px 14px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule); white-space: pre; overflow-x: auto; max-width: 100%; }
+.score-card { padding: 14px 16px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule); display: grid; gap: 10px; max-width: 100%; }
+.sc-head { font: 600 14px/1.4 var(--f-mono); }
+.sc-head span { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sc-rows { display: grid; gap: 4px; }
+.sc-row { display: flex; align-items: center; gap: 3px; }
+.sc-row i { width: 13px; height: 13px; border-radius: 3px; flex: none; }
+.sc-row i.p { background: var(--pass); }
+.sc-row i.f { background: var(--fail); }
+.sc-row i.l { box-shadow: inset 0 0 0 1.5px var(--rule); }
+.sc-row b { margin-left: 6px; font: 400 12px/1 var(--f-mono); color: var(--muted); }
 .finish details { grid-column: 1 / -1; }
 .finish summary { cursor: pointer; font-weight: 600; }
-.finish details pre { margin: 10px 0 0; padding: 14px 16px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule); font-size: 13px; line-height: 1.6; overflow-x: auto; }
+.finish details pre { margin: 10px 0 0; padding: 14px 16px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule); font-size: 13px; line-height: 1.6; overflow-x: auto; font-variant-ligatures: none; }
 .copied { font-size: 13px; color: var(--pass); }
 
 .rules { padding: 16px 22px; }
 .rules summary { cursor: pointer; font: 800 16px/1.2 var(--f-display); }
-.rules ol { margin: 12px 0 4px; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
+.rules ol { margin: 12px 0 4px; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; }
 .rules li::marker { font-family: var(--f-mono); color: var(--muted); }
 
 /* Players need to see === and <= as typed, not as ligatures. */
-#code, .sig, .t .expr, .t .got, .console pre, .grid-out, .finish details pre { font-variant-ligatures: none; }
+.sig, .t .expr, .t .got, .diff, .tlogs pre { font-variant-ligatures: none; }
 
 @media (max-width: 900px) {
   .board { grid-template-columns: minmax(0, 1fr); }
@@ -272,11 +339,12 @@ code, pre, .mono { font-family: var(--f-mono); }
       <div class="verdict">
         <div class="stat"><small>Runs</small><b id="fRuns">0</b></div>
         <div class="stat"><small>Par</small><b id="fPar">0</b></div>
+        <div class="stat" id="fProbesWrap"><small>Probes</small><b id="fProbes">0</b></div>
         <div class="stat"><small>Time</small><b id="fTime">0:00</b></div>
       </div>
     </div>
     <div class="share">
-      <pre class="grid-out" id="shareGrid"></pre>
+      <div class="score-card" id="scoreCard"></div>
       <div style="display:flex; gap:10px; align-items:center;">
         <button type="button" class="run-btn" id="copyBtn">Copy result</button>
         <span class="copied" id="copied" hidden>Copied</span>
@@ -305,16 +373,25 @@ code, pre, .mono { font-family: var(--f-mono); }
         <div class="file"><i></i><span id="fileName">kata.js</span><span class="dirty" id="dirty" hidden>edited since last run</span></div>
         <div class="tools">
           <button type="button" class="btn-ghost" id="resetBtn">Reset to stub</button>
-          <button type="button" class="run-btn" id="runBtn">Run tests <kbd id="kbd">Ctrl ↵</kbd></button>
+          <button type="button" class="run-btn" id="runBtn">Run tests <kbd class="mod">Ctrl ↵</kbd></button>
         </div>
       </div>
       <div class="editor">
-        <div class="gutter-wrap"><pre class="gutter" id="gutter" aria-hidden="true">1</pre></div>
-        <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Your solution"></textarea>
+        <div class="gutter-wrap"><div class="gutter" id="gutter" aria-hidden="true"></div></div>
+        <div class="code-wrap">
+          <pre class="hl" id="hl" aria-hidden="true"></pre>
+          <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Your solution"></textarea>
+        </div>
       </div>
       <div class="console">
-        <div class="console-head"><span>Runner output</span><span id="runStamp"></span></div>
+        <div class="console-head"><span>Console</span><button type="button" class="btn-ghost small" id="clearBtn">Clear</button></div>
         <pre id="out"></pre>
+        <form class="probe" id="probeForm" autocomplete="off">
+          <label for="probe">›</label>
+          <input id="probe" type="text" spellcheck="false" autocapitalize="off" aria-label="Call your function">
+          <button type="submit" class="btn-ghost small">Call</button>
+        </form>
+        <div class="probe-hint" id="probeHint"></div>
       </div>
     </section>
   </main>
@@ -327,6 +404,8 @@ code, pre, .mono { font-family: var(--f-mono); }
       <li>When everything shown is green, reveal the next test. Revealing is free, and if your code already handles it, it lights up green straight away.</li>
       <li>Clear every test in as few runs as you can. Par is one run per test; a general solution can beat it.</li>
       <li>Once the last test passes, runs stop counting. Refactor as much as you like, then share your grid.</li>
+      <li>Stuck? Anything you <code>console.log</code> shows up under the test that printed it, and <code>console.table</code>, <code>count</code>, <code>time</code> and <code>assert</code> work too. Type a call like <code>fizzBuzz(15)</code> into the console prompt to try your own inputs; each call is tallied as a probe on your result.</li>
+      <li>Shortcuts: <kbd class="mod">Ctrl ↵</kbd> runs the tests, <kbd class="modslash">Ctrl /</kbd> toggles comments, <kbd>Tab</kbd> and <kbd>Shift Tab</kbd> indent. Click a line number in an error to jump to it.</li>
     </ol>
   </details>
 </div>
@@ -537,6 +616,7 @@ function dateLabel(num) {
 }
 const puzzleFor = (num) => PUZZLES[(num - 1) % PUZZLES.length];
 const stubFor = (p) => `function ${p.fn}(${p.params}) {\n  throw new Error("Not implemented");\n}\n`;
+const esc = (str) => String(str).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 function fmt(v) {
   if (v === undefined) return "undefined";
@@ -545,54 +625,220 @@ function fmt(v) {
   try { const s = JSON.stringify(v); return s === undefined ? String(v) : s; } catch { return String(v); }
 }
 
-// Runs inside the worker, appended after the player's code so their line numbers stay accurate.
-function harness(name, f, fmt) {
-  let current = -1;
-  const logs = [];
-  const log = (...args) => logs.push({ t: current, m: args.map((a) => (typeof a === "string" ? a : fmt(a))).join(" ") });
-  console.log = console.info = console.warn = console.error = console.debug = log;
+/* ---------- Syntax highlighting ---------- */
+
+const KEYWORDS = new Set("const let var function return if else for while do of in new throw try catch finally switch case break continue default typeof instanceof class extends this async await yield delete void static get set".split(" "));
+const LITERALS = new Set("true false null undefined NaN Infinity".split(" "));
+const TOKEN = /(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"?|'(?:\\.|[^'\\\n])*'?|`(?:\\[\s\S]|[^`\\])*`?)|(\b0[xXbBoO][\da-fA-F_]+n?|\b\d[\d_]*(?:\.\d*)?(?:[eE][+-]?\d+)?n?|\.\d+)|([A-Za-z_$][\w$]*)|(\/(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n[])+\/[dgimsuy]*)/g;
+// A slash after one of these starts a regex literal; anywhere else it divides.
+const REGEX_PREFIX = /(?:^|[(,=:[!&|?{};+\-*%<>~^]|\b(?:return|typeof|case|of|in|void|delete))\s*$/;
+
+function tokenize(src) {
+  const out = [];
+  let last = 0, m;
+  TOKEN.lastIndex = 0;
+  while ((m = TOKEN.exec(src))) {
+    if (m.index > last) out.push(["", src.slice(last, m.index)]);
+    let cls = "";
+    if (m[1]) cls = "com";
+    else if (m[2]) cls = "str";
+    else if (m[3]) cls = "num";
+    else if (m[4]) cls = KEYWORDS.has(m[4]) ? "kw" : LITERALS.has(m[4]) ? "lit" : /^\s*\(/.test(src.slice(TOKEN.lastIndex, TOKEN.lastIndex + 40)) ? "fn" : "";
+    else if (m[5]) {
+      if (!REGEX_PREFIX.test(src.slice(Math.max(0, m.index - 40), m.index))) {
+        out.push(["", "/"]);
+        last = TOKEN.lastIndex = m.index + 1;
+        continue;
+      }
+      cls = "re";
+    }
+    out.push([cls, m[0]]);
+    last = TOKEN.lastIndex;
+  }
+  if (last < src.length) out.push(["", src.slice(last)]);
+  return out;
+}
+
+function highlight(src, badLines = new Set()) {
+  const lines = [[]];
+  for (const [cls, text] of tokenize(src)) {
+    text.split("\n").forEach((part, i) => {
+      if (i) lines.push([]);
+      if (part) lines[lines.length - 1].push(cls ? `<span class="tk-${cls}">${esc(part)}</span>` : esc(part));
+    });
+  }
+  return lines.map((parts, i) => `<span class="ln${badLines.has(i + 1) ? " bad" : ""}">${parts.join("") || "​"}</span>`).join("");
+}
+
+/* ---------- Test runner ---------- */
+
+// Joined onto the first line of the worker source so the player's line numbers stay accurate.
+// It is flattened to one line, so every statement needs its semicolon and no // comments.
+function prelude() {
+  var T = self.__t3d = { logs: [], current: -1, counts: {}, timers: {}, depth: 0, capped: false };
+  var insp = T.insp = function (v, d, seen) {
+    d = d || 0; seen = seen || [];
+    if (v === undefined) return "undefined";
+    if (v === null) return "null";
+    var t = typeof v;
+    if (t === "string") return JSON.stringify(v);
+    if (t === "number") return Object.is(v, -0) ? "-0" : String(v);
+    if (t === "bigint") return String(v) + "n";
+    if (t === "function") return "[Function " + (v.name || "anonymous") + "]";
+    if (t !== "object") return String(v);
+    if (seen.indexOf(v) >= 0) return "[Circular]";
+    if (v instanceof Error) return v.name + ": " + v.message;
+    if (v instanceof Date) return isNaN(v) ? "Invalid Date" : v.toISOString();
+    if (v instanceof RegExp) return String(v);
+    if (d > 4) return Array.isArray(v) ? "[Array]" : "[Object]";
+    seen = seen.concat([v]);
+    var sub = function (x) { return insp(x, d + 1, seen); };
+    var list = function (items, open, close) {
+      return open + items.slice(0, 50).join(", ") + (items.length > 50 ? ", ... " + (items.length - 50) + " more" : "") + close;
+    };
+    if (Array.isArray(v)) return list(Array.from(v, function (x) { return sub(x); }), "[", "]");
+    if (v instanceof Map) return list(Array.from(v, function (e) { return sub(e[0]) + " => " + sub(e[1]); }), "Map(" + v.size + ") {", "}");
+    if (v instanceof Set) return list(Array.from(v, function (x) { return sub(x); }), "Set(" + v.size + ") {", "}");
+    var keys = Object.keys(v);
+    if (!keys.length) return "{}";
+    return list(keys.map(function (k) { return (/^[A-Za-z_$][\w$]*$/.test(k) ? k : JSON.stringify(k)) + ": " + sub(v[k]); }), "{ ", " }");
+  };
+  var text = function (args) { return args.map(function (a) { return typeof a === "string" ? a : insp(a); }).join(" "); };
+  var push = function (level, msg) {
+    if (T.logs.length >= 400) {
+      if (!T.capped) { T.capped = true; T.logs.push({ t: T.current, l: "warn", m: "Log limit reached. Further output was dropped." }); }
+      return;
+    }
+    T.logs.push({ t: T.current, l: level, m: "  ".repeat(T.depth) + msg });
+  };
+  var table = function (data) {
+    if (data === null || typeof data !== "object") { push("log", insp(data)); return; }
+    var rows = Object.keys(data), cols = [];
+    var isObj = function (x) { return x !== null && typeof x === "object"; };
+    rows.forEach(function (r) {
+      if (isObj(data[r])) Object.keys(data[r]).forEach(function (c) { if (cols.indexOf(c) < 0) cols.push(c); });
+      else if (cols.indexOf("Values") < 0) cols.push("Values");
+    });
+    var head = ["(index)"].concat(cols);
+    var body = rows.map(function (r) {
+      var row = data[r];
+      return [r].concat(cols.map(function (c) {
+        if (isObj(row)) return c in row ? insp(row[c]) : "";
+        return c === "Values" ? insp(row) : "";
+      }));
+    });
+    var all = [head].concat(body);
+    var w = head.map(function (_, i) { return Math.max.apply(null, all.map(function (r) { return r[i].length; })); });
+    var line = function (r) { return r.map(function (c, i) { return c + " ".repeat(w[i] - c.length); }).join(" | "); };
+    push("log", [line(head), w.map(function (n) { return "-".repeat(n); }).join("-+-")].concat(body.map(line)).join("\n"));
+  };
+  var label = function (l) { return l === undefined ? "default" : String(l); };
+  var lap = function (l, end) {
+    l = label(l);
+    if (T.timers[l] === undefined) { push("warn", "Timer '" + l + "' does not exist"); return; }
+    push("log", l + ": " + (performance.now() - T.timers[l]).toFixed(3) + " ms");
+    if (end) delete T.timers[l];
+  };
+  var all = function (a) { return Array.prototype.slice.call(a); };
+  var C = self.console;
+  C.log = C.info = C.debug = function () { push("log", text(all(arguments))); };
+  C.warn = function () { push("warn", text(all(arguments))); };
+  C.error = function () { push("error", text(all(arguments))); };
+  C.dir = function (v) { push("log", insp(v)); };
+  C.trace = function () { push("log", text(["Trace:"].concat(all(arguments)))); };
+  C.assert = function (ok) { if (!ok) push("error", text(["Assertion failed"].concat(all(arguments).slice(1)))); };
+  C.count = function (l) { l = label(l); T.counts[l] = (T.counts[l] || 0) + 1; push("log", l + ": " + T.counts[l]); };
+  C.countReset = function (l) { T.counts[label(l)] = 0; };
+  C.time = function (l) { T.timers[label(l)] = performance.now(); };
+  C.timeLog = function (l) { lap(l, false); };
+  C.timeEnd = function (l) { lap(l, true); };
+  C.group = C.groupCollapsed = function () { if (arguments.length) push("log", text(all(arguments))); T.depth++; };
+  C.groupEnd = function () { if (T.depth) T.depth--; };
+  C.table = table;
+  C.clear = function () {};
+}
+
+function harness(name, f, userLines, fmt) {
+  const T = self.__t3d;
+  const where = (err) => {
+    const stack = err && err.stack ? String(err.stack).split("\n") : [];
+    for (const frame of stack) {
+      if (!frame.includes("blob:")) continue;
+      const m = frame.match(/:(\d+):\d+\)?\s*$/);
+      if (m && +m[1] <= userLines) return +m[1];
+    }
+    return 0;
+  };
+  const describe = (err) => ({
+    ok: false,
+    error: (err && err.name ? err.name + ": " : "") + (err && err.message !== undefined ? err.message : String(err)),
+    line: where(err)
+  });
   self.onmessage = (e) => {
-    if (typeof f !== "function") { postMessage({ fatal: "ReferenceError: " + name + " is not defined as a function." }); return; }
-    const results = e.data.map((t, i) => {
-      current = i;
+    if (typeof f !== "function") {
+      postMessage({ fatal: name + " is not defined as a function.", line: 0, logs: T.logs });
+      return;
+    }
+    if (e.data.probe) {
+      T.current = "probe";
+      let out;
+      try { out = { value: T.insp(self.__probe()) }; } catch (err) { out = describe(err); }
+      postMessage({ probe: out, logs: T.logs });
+      return;
+    }
+    const results = e.data.tests.map((t, i) => {
+      T.current = i;
+      T.depth = 0;
       try {
         const actual = f(...t.args);
         const shown = fmt(actual);
         return { ok: typeof actual === typeof t.expected && shown === fmt(t.expected), actual: shown };
       } catch (err) {
-        return { ok: false, error: (err && err.name ? err.name + ": " : "") + (err && err.message !== undefined ? err.message : String(err)) };
+        return describe(err);
       }
     });
-    postMessage({ results, logs });
+    postMessage({ results, logs: T.logs });
   };
 }
 
-function execute(code, p, tests) {
+function execute(code, p, payload) {
   return new Promise((resolve) => {
-    const src = code + "\n;(" + harness + ")(" + JSON.stringify(p.fn) + ", typeof " + p.fn + " === 'function' ? " + p.fn + " : undefined, " + fmt + ");\n";
+    const userLines = code.split("\n").length;
+    const probe = payload.probe ? "\n;self.__probe = function () { return (\n" + payload.probe + "\n); };" : "";
+    const src = "(" + String(prelude).replace(/\n\s*/g, " ") + ")();" + code + "\n;" + probe +
+      "\n;(" + harness + ")(" + JSON.stringify(p.fn) + ", typeof " + p.fn + " === 'function' ? " + p.fn + " : undefined, " + userLines + ", " + fmt + ");\n";
     let url, worker;
     try {
       url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
       worker = new Worker(url);
     } catch (err) {
-      resolve({ fatal: "The test runner could not start: " + err.message });
+      resolve({ fatal: "The test runner could not start: " + err.message, line: 0 });
       return;
     }
     const finish = (r) => { clearTimeout(timer); worker.terminate(); URL.revokeObjectURL(url); resolve(r); };
-    const timer = setTimeout(() => finish({ fatal: "Timed out after 2 seconds. Look for a loop that never ends." }), 2000);
+    const timer = setTimeout(() => finish({ fatal: "Timed out after 2 seconds. Look for a loop that never ends.", line: 0 }), 2000);
     worker.onmessage = (e) => finish(e.data);
-    worker.onerror = (e) => { e.preventDefault(); finish({ fatal: (e.message || "Script error") + (e.lineno ? " (line " + e.lineno + ")" : "") }); };
-    worker.postMessage(tests.map(([args, expected]) => ({ args, expected })));
+    worker.onerror = (e) => {
+      e.preventDefault();
+      const message = (e.message || "Script error").replace(/^Uncaught /, "");
+      const line = e.lineno && e.lineno <= userLines ? e.lineno : 0;
+      finish(payload.probe && !line ? { probe: { error: "Couldn't read that call. " + message } } : { fatal: message, line });
+    };
+    worker.postMessage(payload.probe ? { probe: true } : { tests: payload.tests.map(([args, expected]) => ({ args, expected })) });
   });
 }
+
+/* ---------- Game state ---------- */
 
 let viewNum = todayNum();
 let p, s;
 let running = false;
 let tick = null;
+let lastRevealed = 0;
+let scrollConsole = false;
 
 function freshState(puzzle) {
-  return { code: stubFor(puzzle), revealed: 1, results: [], rows: [], done: false, startedAt: null, finishedAt: null, lastRunCode: null, log: [] };
+  return { code: stubFor(puzzle), revealed: 1, results: [], rows: [], probes: 0, done: false, startedAt: null, finishedAt: null, lastRunCode: null, log: [] };
 }
 function load(num) {
   viewNum = num;
@@ -600,7 +846,9 @@ function load(num) {
   s = Object.assign(freshState(p), store.get("kata:" + num, {}));
   lastRevealed = s.revealed;
   $("code").value = s.code;
-  syncGutter();
+  $("code").scrollTop = $("code").scrollLeft = 0;
+  probeHistory.length = 0;
+  scrollConsole = true;
   render();
 }
 function save() { store.set("kata:" + viewNum, s); }
@@ -624,8 +872,6 @@ function elapsed() {
   return (s.finishedAt || Date.now()) - s.startedAt;
 }
 
-const esc = (str) => String(str).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-
 function argsText(t) {
   return t[2] !== undefined ? t[2] : t[0].map(fmt).join(", ");
 }
@@ -637,7 +883,61 @@ function phase() {
   return allGreen ? "green" : "red";
 }
 
-let lastRevealed = 0;
+function badLines() {
+  const set = new Set();
+  if ($("code").value !== s.lastRunCode) return set;
+  s.results.slice(0, s.revealed).forEach((r) => { if (r && !r.ok && r.line) set.add(r.line); });
+  return set;
+}
+
+/* ---------- Rendering ---------- */
+
+function diffHtml(expected, actual) {
+  let i = 0;
+  while (i < expected.length && i < actual.length && expected[i] === actual[i]) i++;
+  const mark = (str) => esc(str.slice(0, i)) + (i < str.length ? `<mark>${esc(str[i])}</mark>${esc(str.slice(i + 1))}` : '<mark class="end"> </mark>');
+  return `<div class="diff"><span>expected</span><code>${mark(expected)}</code><span>received</span><code>${mark(actual)}</code></div>`;
+}
+
+function testItem(t, i) {
+  const r = s.results[i];
+  const cls = r ? (r.ok ? "pass" : "fail") : "";
+  const fresh = i >= lastRevealed && lastRevealed > 0 ? " new" : "";
+  let detail = "";
+  if (r && !r.ok) {
+    detail = r.error
+      ? `<div class="got">${esc(r.error)}${r.line ? `<button type="button" class="jump" data-line="${r.line}">line ${r.line}</button>` : ""}</div>`
+      : diffHtml(fmt(t[1]), r.actual);
+  }
+  const logs = r && r.logs && r.logs.length
+    ? `<details class="tlogs"${r.ok ? "" : " open"}><summary>${r.logs.length} console line${r.logs.length === 1 ? "" : "s"}</summary><pre>${r.logs.map((l) => `<span class="c-${l.l}">${esc(l.m)}</span>`).join("\n")}</pre></details>`
+    : "";
+  return `<li class="t ${cls}${fresh}"><span class="dot">${r ? (r.ok ? "✓" : "✗") : i + 1}</span><div><div class="expr"><span class="fn">${p.fn}</span>(${esc(argsText(t))})<span class="arrow">→</span>${esc(fmt(t[1]))}</div>${detail}${logs}</div></li>`;
+}
+
+function renderEditor() {
+  const ta = $("code");
+  const bad = badLines();
+  $("hl").innerHTML = highlight(ta.value, bad);
+  const n = ta.value.split("\n").length;
+  $("gutter").innerHTML = Array.from({ length: n }, (_, i) => `<span class="gl${bad.has(i + 1) ? " bad" : ""}">${i + 1}</span>`).join("");
+  syncScroll();
+}
+
+function syncScroll() {
+  const ta = $("code");
+  $("hl").style.transform = `translate(${-ta.scrollLeft}px, ${-ta.scrollTop}px)`;
+  $("gutter").style.transform = `translateY(${-ta.scrollTop}px)`;
+}
+
+function renderConsole() {
+  const out = $("out");
+  out.innerHTML = s.log.length
+    ? s.log.map((l) => `<span class="c-${l.c}">${esc(l.m)}</span>`).join("")
+    : '<span>Run the tests, or call your function below. Anything you console.log appears here, grouped by test.</span>';
+  if (scrollConsole) { out.scrollTop = out.scrollHeight; scrollConsole = false; }
+}
+
 function render() {
   const today = todayNum();
   $("kataNum").textContent = "Kata #" + viewNum;
@@ -656,19 +956,10 @@ function render() {
   const passing = s.results.slice(0, s.revealed).filter((r) => r && r.ok).length;
   $("testCount").textContent = `${passing} / ${total} green`;
 
-  const items = p.tests.map((t, i) => {
-    if (i >= s.revealed) {
-      return `<li class="t locked"><span class="dot">${i + 1}</span><div class="expr">Locked. Turn every test above green to reveal it.</div></li>`;
-    }
-    const r = s.results[i];
-    const cls = r ? (r.ok ? "pass" : "fail") : "";
-    const fresh = i >= lastRevealed && lastRevealed > 0 ? " new" : "";
-    const got = r && !r.ok ? `<div class="got">${r.error ? esc(r.error) : "got " + esc(r.actual)}</div>` : "";
-    return `<li class="t ${cls}${fresh}"><span class="dot">${r ? (r.ok ? "✓" : "✗") : i + 1}</span><div><div class="expr"><span class="fn">${p.fn}</span>(${esc(argsText(t))})<span class="arrow">→</span>${esc(fmt(t[1]))}</div>${got}</div></li>`;
-  });
-  const shownLocked = Math.min(total, s.revealed + 1);
-  $("tests").innerHTML = items.slice(0, shownLocked).join("") +
-    (total > shownLocked ? `<li class="t locked"><span class="dot">+${total - shownLocked}</span><div class="expr">More tests waiting further down the stack.</div></li>` : "");
+  const items = p.tests.slice(0, s.revealed).map(testItem);
+  if (s.revealed < total) items.push(`<li class="t locked"><span class="dot">${s.revealed + 1}</span><div class="expr">Locked. Turn every test above green to reveal it.</div></li>`);
+  if (s.revealed + 1 < total) items.push(`<li class="t locked"><span class="dot">+${total - s.revealed - 1}</span><div class="expr">More tests waiting further down the stack.</div></li>`);
+  $("tests").innerHTML = items.join("");
   lastRevealed = s.revealed;
 
   const ph = phase();
@@ -701,17 +992,21 @@ function render() {
     ? "Revealing is free. If your code already handles it, it goes straight to green."
     : ph === "green" && dirty ? "Run your edited code before revealing." : "Available once every test shown is green.";
 
-  const runs = s.rows.length;
-  $("runs").innerHTML = `${runs} <em>/ par ${total}</em>`;
+  $("runs").innerHTML = `${s.rows.length} <em>/ par ${total}</em>`;
   $("streak").textContent = streak();
   renderClock();
+
+  const t0 = p.tests[0];
+  $("probe").placeholder = `${p.fn}(${t0[2] === undefined ? t0[0].map(fmt).join(", ") : ""})`;
+  $("probeHint").textContent = s.done
+    ? "Try any input you like. Probes stopped counting when you finished."
+    : `Call ${p.fn} with your own inputs and press Enter. Probes so far: ${s.probes}.`;
 
   $("finish").hidden = !s.done;
   if (s.done) renderFinish();
 
-  const lines = s.log.map((l) => `<span class="${l.c}">${esc(l.m)}</span>`).join("\n");
-  $("out").innerHTML = lines || '<span>Press Run tests to check your code. Anything you console.log appears here.</span>';
-  $("runStamp").textContent = runs ? `run ${runs}` : "";
+  renderEditor();
+  renderConsole();
 }
 
 function renderClock() {
@@ -720,10 +1015,26 @@ function renderClock() {
   else if (tick) { clearInterval(tick); tick = null; }
 }
 
+// Repeated identical rows collapse into one with a count, so long sessions stay shareable.
+function groupedRows() {
+  const out = [];
+  for (const row of s.rows) {
+    const key = row.join();
+    const prev = out[out.length - 1];
+    if (prev && prev.key === key) prev.n++;
+    else out.push({ key, row, n: 1 });
+  }
+  return out;
+}
+
+function summaryLine() {
+  const probes = s.probes ? ` · Probes ${s.probes}` : "";
+  return `Runs ${s.rows.length} · Par ${p.tests.length}${probes} · ${clock(elapsed())}`;
+}
+
 function shareText() {
-  const total = p.tests.length;
-  const grid = s.rows.map((row) => row.map((ok) => (ok ? "🟩" : "🟥")).join("") + "⬜".repeat(total - row.length)).join("\n");
-  return `T3D #${viewNum} · ${p.title}\nRuns ${s.rows.length} · Par ${total} · ${clock(elapsed())}\n${grid}`;
+  const grid = groupedRows().map(({ row, n }) => row.map((ok) => (ok ? "🟩" : "🟥")).join("") + (n > 1 ? ` ×${n}` : "")).join("\n");
+  return `T3D #${viewNum} · ${p.title}\n${summaryLine()}\n${grid}\nhttps://jonezzyboy.github.io/t3d/`;
 }
 
 function renderFinish() {
@@ -733,14 +1044,21 @@ function renderFinish() {
   $("finishText").textContent = diff < 0
     ? `You cleared ${total} tests in ${runs} run${runs === 1 ? "" : "s"}. Your code handled tests before you saw them.`
     : diff === 0
-      ? `One run per test, in strict red-green rhythm.`
+      ? "One run per test, in strict red-green rhythm."
       : `${runs} runs for ${total} tests. Shorter steps and smaller changes usually bring that down.`;
   $("fRuns").textContent = runs;
   $("fPar").textContent = total;
+  $("fProbesWrap").hidden = !s.probes;
+  $("fProbes").textContent = s.probes;
   $("fTime").textContent = clock(elapsed());
-  $("shareGrid").textContent = shareText();
-  $("refCode").textContent = p.ref;
+  const rows = groupedRows().map(({ row, n }) =>
+    `<div class="sc-row">${row.map((ok) => `<i class="${ok ? "p" : "f"}"></i>`).join("")}${'<i class="l"></i>'.repeat(total - row.length)}${n > 1 ? `<b>×${n}</b>` : ""}</div>`
+  ).join("");
+  $("scoreCard").innerHTML = `<div class="sc-head">T3D #${viewNum} · ${esc(p.title)}<span>${summaryLine()}</span></div><div class="sc-rows">${rows}</div>`;
+  $("refCode").innerHTML = highlight(p.ref);
 }
+
+/* ---------- Actions ---------- */
 
 function markStarted() {
   if (!s.startedAt) { s.startedAt = Date.now(); save(); renderClock(); }
@@ -766,18 +1084,40 @@ function markShelf() {
   } catch {}
 }
 
-function applyResult(res, upto) {
-  const log = [];
+function logAppend(entries) {
+  s.log = s.log.concat(entries).slice(-400);
+  scrollConsole = true;
+}
+
+function logsByTest(res) {
+  const by = {};
+  for (const l of res.logs || []) (by[l.t] = by[l.t] || []).push(l);
+  return by;
+}
+
+const lineNote = (line) => (line ? ` (line ${line})` : "");
+
+function applyResult(res, upto, heading) {
+  const by = logsByTest(res);
   if (res.fatal) {
-    for (let i = 0; i < upto; i++) s.results[i] = { ok: false, error: res.fatal };
-    log.push({ c: "err", m: res.fatal });
+    for (let i = 0; i < upto; i++) s.results[i] = { ok: false, error: res.fatal, line: res.line || 0 };
   } else {
-    res.results.forEach((r, i) => { s.results[i] = r; });
-    for (const l of res.logs) if (l.t < upto) log.push({ c: "lg", m: (l.t >= 0 ? `[test ${l.t + 1}] ` : "") + l.m });
-    const pass = res.results.filter((r) => r.ok).length;
-    log.push({ c: pass === upto ? "ok" : "err", m: `${pass} of ${upto} passing` });
+    res.results.forEach((r, i) => { s.results[i] = { ...r, logs: by[i] || [] }; });
   }
-  s.log = log;
+  const pass = res.fatal ? 0 : res.results.filter((r) => r.ok).length;
+  const out = [{ c: "head", m: `${heading} · ${pass} of ${upto} passing` }];
+  for (const l of by[-1] || []) out.push({ c: l.l, m: "[top level] " + l.m });
+  if (res.fatal) {
+    out.push({ c: "error", m: res.fatal + lineNote(res.line) });
+  } else {
+    res.results.forEach((r, i) => {
+      const call = `${p.fn}(${argsText(p.tests[i])})`;
+      const why = r.ok ? "" : r.error ? `  ${r.error}${lineNote(r.line)}` : `  expected ${fmt(p.tests[i][1])}, received ${r.actual}`;
+      out.push({ c: r.ok ? "ok" : "error", m: `${r.ok ? "✓" : "✗"} ${i + 1}. ${call}${why}` });
+      for (const l of by[i] || []) out.push({ c: l.l, m: "    " + l.m.replace(/\n/g, "\n    ") });
+    });
+  }
+  logAppend(out);
 }
 
 async function runTests() {
@@ -787,8 +1127,8 @@ async function runTests() {
   markStarted();
   const code = $("code").value;
   s.code = code;
-  const res = await execute(code, p, p.tests.slice(0, s.revealed));
-  applyResult(res, s.revealed);
+  const res = await execute(code, p, { tests: p.tests.slice(0, s.revealed) });
+  applyResult(res, s.revealed, s.done ? "Refactor run" : `Run ${s.rows.length + 1}`);
   s.lastRunCode = code;
   const allGreen = s.results.slice(0, s.revealed).every((r) => r && r.ok);
   if (!s.done) {
@@ -805,8 +1145,10 @@ async function revealNext() {
   if (running || s.done || s.revealed >= p.tests.length) return;
   running = true;
   s.revealed++;
-  const res = await execute(s.code, p, p.tests.slice(0, s.revealed));
-  applyResult(res, s.revealed);
+  const res = await execute(s.code, p, { tests: p.tests.slice(0, s.revealed) });
+  applyResult(res, s.revealed, `Revealed test ${s.revealed}`);
+  const newest = s.results[s.revealed - 1];
+  if (s.rows.length) s.rows[s.rows.length - 1].push(!!(newest && newest.ok));
   const allGreen = s.results.slice(0, s.revealed).every((r) => r && r.ok);
   if (allGreen && s.revealed === p.tests.length) complete();
   save();
@@ -814,11 +1156,33 @@ async function revealNext() {
   render();
 }
 
-function syncGutter() {
-  const n = $("code").value.split("\n").length;
-  $("gutter").textContent = Array.from({ length: n }, (_, i) => i + 1).join("\n");
-  $("gutter").style.transform = `translateY(${-$("code").scrollTop}px)`;
+const probeHistory = [];
+let probeCursor = 0;
+
+async function probe(expr) {
+  expr = expr.trim();
+  if (running || !expr) return;
+  running = true;
+  markStarted();
+  if (probeHistory[probeHistory.length - 1] !== expr) probeHistory.push(expr);
+  probeCursor = probeHistory.length;
+  const code = $("code").value;
+  s.code = code;
+  const res = await execute(code, p, { probe: expr });
+  const by = logsByTest(res);
+  const out = [{ c: "in", m: "› " + expr }];
+  for (const l of [...(by[-1] || []), ...(by.probe || [])]) out.push({ c: l.l, m: l.m });
+  if (res.fatal) out.push({ c: "error", m: res.fatal + lineNote(res.line) });
+  else if (res.probe.error) out.push({ c: "error", m: res.probe.error + lineNote(res.probe.line) });
+  else out.push({ c: "out", m: "← " + res.probe.value });
+  if (!s.done) s.probes++;
+  logAppend(out);
+  save();
+  running = false;
+  render();
 }
+
+/* ---------- Editor ---------- */
 
 function insert(text) {
   const ta = $("code");
@@ -828,19 +1192,62 @@ function insert(text) {
   }
 }
 
+function editLines(transform) {
+  const ta = $("code"), v = ta.value;
+  const start = ta.selectionStart === 0 ? 0 : v.lastIndexOf("\n", ta.selectionStart - 1) + 1;
+  let endPos = ta.selectionEnd;
+  if (endPos > ta.selectionStart && v[endPos - 1] === "\n") endPos--;
+  let end = v.indexOf("\n", endPos);
+  if (end < 0) end = v.length;
+  const next = transform(v.slice(start, end).split("\n")).join("\n");
+  ta.setSelectionRange(start, end);
+  insert(next);
+  ta.setSelectionRange(start, start + next.length);
+}
+
+function toggleComment() {
+  editLines((lines) => {
+    const filled = lines.filter((l) => l.trim());
+    if (!filled.length) return lines;
+    if (filled.every((l) => /^\s*\/\//.test(l))) return lines.map((l) => l.replace(/^(\s*)\/\/ ?/, "$1"));
+    const indent = Math.min(...filled.map((l) => l.match(/^\s*/)[0].length));
+    return lines.map((l) => (l.trim() ? l.slice(0, indent) + "// " + l.slice(indent) : l));
+  });
+}
+
+function jumpToLine(n) {
+  const ta = $("code");
+  const lines = ta.value.split("\n");
+  const pos = lines.slice(0, n - 1).reduce((sum, l) => sum + l.length + 1, 0);
+  ta.focus({ preventScroll: true });
+  ta.setSelectionRange(pos, pos + (lines[n - 1] || "").length);
+  ta.scrollTop = Math.max(0, (n - 4) * parseFloat(getComputedStyle(ta).lineHeight));
+  syncScroll();
+  ta.closest(".bench").scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
 let saveTimer = null;
 $("code").addEventListener("input", () => {
   s.code = $("code").value;
   markStarted();
-  syncGutter();
+  renderEditor();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { save(); render(); }, 250);
 });
-$("code").addEventListener("scroll", syncGutter);
+$("code").addEventListener("scroll", syncScroll);
 $("code").addEventListener("keydown", (e) => {
   const ta = e.target;
-  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); runTests(); return; }
-  if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); insert("  "); return; }
+  const mod = e.metaKey || e.ctrlKey;
+  if (e.key === "Enter" && mod) { e.preventDefault(); runTests(); return; }
+  if (e.key === "/" && mod) { e.preventDefault(); toggleComment(); return; }
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const multiline = ta.value.slice(ta.selectionStart, ta.selectionEnd).includes("\n");
+    if (e.shiftKey) editLines((lines) => lines.map((l) => l.replace(/^ {1,2}/, "")));
+    else if (multiline) editLines((lines) => lines.map((l) => (l ? "  " + l : l)));
+    else insert("  ");
+    return;
+  }
   if (e.key === "Enter" && !e.altKey) {
     const before = ta.value.slice(0, ta.selectionStart);
     const line = before.slice(before.lastIndexOf("\n") + 1);
@@ -851,6 +1258,36 @@ $("code").addEventListener("keydown", (e) => {
   }
 });
 
+$("tests").addEventListener("click", (e) => {
+  const btn = e.target.closest(".jump");
+  if (btn) jumpToLine(Number(btn.dataset.line));
+});
+
+$("probeForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = $("probe");
+  const expr = input.value;
+  input.value = "";
+  probe(expr);
+});
+$("probe").addEventListener("focus", (e) => {
+  const input = e.target;
+  if (input.value) return;
+  input.value = `${p.fn}()`;
+  input.setSelectionRange(input.value.length - 1, input.value.length - 1);
+});
+$("probe").addEventListener("blur", (e) => {
+  if (e.target.value === `${p.fn}()`) e.target.value = "";
+});
+$("probe").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+  if (!probeHistory.length) return;
+  e.preventDefault();
+  probeCursor = Math.max(0, Math.min(probeHistory.length, probeCursor + (e.key === "ArrowUp" ? -1 : 1)));
+  e.target.value = probeHistory[probeCursor] || "";
+});
+
+$("clearBtn").addEventListener("click", () => { s.log = []; save(); renderConsole(); });
 $("runBtn").addEventListener("click", runTests);
 $("nextTest").addEventListener("click", revealNext);
 
@@ -867,16 +1304,16 @@ $("resetBtn").addEventListener("click", () => {
   btn.classList.remove("armed"); btn.textContent = "Reset to stub";
   $("code").value = stubFor(p);
   s.code = $("code").value;
-  save(); syncGutter(); render();
+  save(); render();
 });
 
 $("copyBtn").addEventListener("click", () => {
   const text = shareText();
-  const done = () => { $("copied").hidden = false; setTimeout(() => $("copied").hidden = true, 2000); };
+  const done = () => { $("copied").textContent = "Copied"; $("copied").hidden = false; setTimeout(() => $("copied").hidden = true, 2000); };
   const fallback = () => {
-    const r = document.createRange(); r.selectNodeContents($("shareGrid"));
+    const r = document.createRange(); r.selectNodeContents($("scoreCard"));
     const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
-    $("copied").textContent = "Selected. Press Ctrl+C to copy.";
+    $("copied").textContent = "Copy was blocked. Select the result and copy it yourself.";
     $("copied").hidden = false;
   };
   try { navigator.clipboard.writeText(text).then(done, fallback); } catch { fallback(); }
@@ -886,7 +1323,10 @@ $("prev").addEventListener("click", () => load(viewNum - 1));
 $("next").addEventListener("click", () => load(viewNum + 1));
 $("todayBtn").addEventListener("click", () => load(todayNum()));
 
-if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) $("kbd").textContent = "⌘ ↵";
+if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) {
+  document.querySelectorAll(".mod").forEach((k) => k.textContent = "⌘ ↵");
+  document.querySelectorAll(".modslash").forEach((k) => k.textContent = "⌘ /");
+}
 
 function start(data) {
   const n = data && data.num;
