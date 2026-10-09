@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>T3D — Test Driven Development Daily</title>
+<meta name="description" content="A daily TDD kata: start from a function stub, reveal the tests one at a time, and turn them all green in as few runs as you can.">
+<link rel="canonical" href="https://jonezzyboy.github.io/t3d/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧪</text></svg>">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2790049582805492"
+     crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Engineering pad: graph-paper ground, kata spec on the left, editor + runner on the right, red/green/refactor strip across the top. */
+:root {
+  --paper: #edf1f6;
+  --grid: rgba(43, 86, 150, 0.075);
+  --panel: #ffffff;
+  --code-bg: #f6f8fb;
+  --ink: #142033;
+  --muted: #58697f;
+  --rule: #cfd8e3;
+  --hl: #ffd23f;
+  --hl-ink: #1d1600;
+  --pass: #17804a;
+  --pass-bg: #e2f4ea;
+  --fail: #c42f28;
+  --fail-bg: #fbe6e4;
+  --lock: #9aa8ba;
+  --shadow: 0 1px 0 rgba(20, 32, 51, 0.06), 0 8px 24px -12px rgba(20, 32, 51, 0.18);
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --f-body: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0c1524; --grid: rgba(120, 160, 230, 0.07); --panel: #131f35; --code-bg: #0e1828;
+    --ink: #e2e9f4; --muted: #8fa1bb; --rule: #263756; --hl: #ffd23f; --hl-ink: #1d1600;
+    --pass: #4cc483; --pass-bg: rgba(76, 196, 131, 0.13); --fail: #ff6f61; --fail-bg: rgba(255, 111, 97, 0.13);
+    --lock: #5b6d89; --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0c1524; --grid: rgba(120, 160, 230, 0.07); --panel: #131f35; --code-bg: #0e1828;
+  --ink: #e2e9f4; --muted: #8fa1bb; --rule: #263756; --hl: #ffd23f; --hl-ink: #1d1600;
+  --pass: #4cc483; --pass-bg: rgba(76, 196, 131, 0.13); --fail: #ff6f61; --fail-bg: rgba(255, 111, 97, 0.13);
+  --lock: #5b6d89; --shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { min-height: 100%; }
+body {
+  margin: 0;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font: 15px/1.55 var(--f-body);
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 48px; display: grid; gap: 18px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--hl); outline-offset: 2px; }
+code, pre, .mono { font-family: var(--f-mono); }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.mark {
+  font: 800 44px/0.9 var(--f-display); letter-spacing: -0.03em;
+  background: linear-gradient(transparent 58%, var(--hl) 58%, var(--hl) 92%, transparent 92%);
+  padding-inline: 2px;
+}
+.mark sup { font-size: 0.55em; vertical-align: 0.65em; }
+.tag { font: 500 12px/1.25 var(--f-body); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+.daynav { display: flex; align-items: center; gap: 6px; }
+.daynav button {
+  width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--rule); background: var(--panel);
+  font: 600 16px/1 var(--f-mono);
+}
+.daynav button:disabled { opacity: 0.35; }
+.daynav .day { text-align: center; min-width: 150px; }
+.daynav .day b { display: block; font: 800 18px/1.1 var(--f-display); }
+.daynav .day span { font-size: 12px; color: var(--muted); }
+.daynav .today-link { width: auto; padding-inline: 10px; font: 500 12px/1 var(--f-body); }
+.stats { display: flex; gap: 22px; }
+.stat { display: grid; gap: 2px; }
+.stat small { font: 500 11px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+.stat b { font: 600 20px/1.1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.stat b em { font-style: normal; font-size: 13px; color: var(--muted); font-weight: 400; }
+
+/* Red / Green / Refactor strip */
+.cycle {
+  display: grid; grid-template-columns: repeat(3, auto) minmax(0, 1fr); align-items: stretch;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
+}
+.phase {
+  padding: 12px 18px; font: 800 15px/1 var(--f-display); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--lock); border-right: 1px solid var(--rule); display: flex; align-items: center; gap: 8px;
+  transition: background-color 0.25s, color 0.25s;
+}
+.phase::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+.phase.on.red { background: var(--fail-bg); color: var(--fail); }
+.phase.on.green { background: var(--pass-bg); color: var(--pass); }
+.phase.on.refactor { background: var(--hl); color: var(--hl-ink); }
+.phase.on::before { opacity: 1; }
+.cycle-msg { padding: 10px 18px; align-self: center; min-width: 0; color: var(--muted); }
+.cycle-msg strong { color: var(--ink); font-weight: 600; }
+
+/* Board */
+.board { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; }
+.spec { padding: 22px; display: grid; gap: 16px; }
+.eyebrow { font: 500 11px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); }
+.spec h1 { margin: 0; font: 800 34px/1.05 var(--f-display); letter-spacing: -0.02em; text-wrap: balance; }
+.sig { font: 400 14px/1.4 var(--f-mono); color: var(--muted); }
+.sig b { color: var(--ink); font-weight: 600; }
+.brief { margin: 0; max-width: 62ch; }
+.brief code { font-size: 0.9em; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px; }
+
+.tests-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tests-head h2 { margin: 0; font: 800 17px/1 var(--f-display); }
+.tests-head span { font: 400 13px/1 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.tests { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.t {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start;
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--rule); background: var(--code-bg);
+}
+.t .dot {
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  font: 600 12px/1 var(--f-mono); border: 1.5px dashed var(--lock); color: var(--lock);
+}
+.t.pass { border-color: color-mix(in srgb, var(--pass) 40%, var(--rule)); background: var(--pass-bg); }
+.t.pass .dot { border: 0; background: var(--pass); color: var(--panel); }
+.t.fail { border-color: color-mix(in srgb, var(--fail) 45%, var(--rule)); background: var(--fail-bg); }
+.t.fail .dot { border: 0; background: var(--fail); color: var(--panel); }
+.t.new { animation: drop 0.35s ease-out; }
+@keyframes drop { from { transform: translateY(-6px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.t .expr { font: 400 13px/1.5 var(--f-mono); overflow-wrap: anywhere; white-space: pre-wrap; }
+.t .expr .fn { font-weight: 600; }
+.t .expr .arrow { color: var(--muted); padding-inline: 4px; }
+.t .got { margin-top: 4px; font: 400 12px/1.45 var(--f-mono); color: var(--fail); overflow-wrap: anywhere; white-space: pre-wrap; }
+.t.locked { background: transparent; border-style: dashed; color: var(--lock); }
+.t.locked .expr { font-family: var(--f-body); font-size: 13px; }
+.next-btn {
+  justify-self: start; border: 0; border-radius: 10px; padding: 10px 16px; background: var(--ink); color: var(--panel);
+  font-weight: 600; display: inline-flex; gap: 8px; align-items: center;
+}
+.next-btn:disabled { background: var(--rule); color: var(--muted); }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+
+/* Bench */
+.bench { display: grid; overflow: hidden; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--rule); }
+.file { font: 600 13px/1 var(--f-mono); display: flex; align-items: center; gap: 8px; }
+.file i { width: 8px; height: 8px; border-radius: 50%; background: var(--hl); }
+.file .dirty { font: 400 12px/1 var(--f-body); color: var(--muted); }
+.tools { display: flex; gap: 8px; }
+.btn-ghost { border: 1px solid var(--rule); background: transparent; border-radius: 9px; padding: 8px 12px; font-size: 13px; }
+.btn-ghost.armed { border-color: var(--fail); color: var(--fail); }
+.run-btn {
+  border: 0; border-radius: 9px; padding: 8px 16px; background: var(--hl); color: var(--hl-ink);
+  font: 600 14px/1.2 var(--f-body); display: inline-flex; gap: 10px; align-items: center;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+}
+.run-btn kbd { font: 400 11px/1 var(--f-mono); opacity: 0.7; }
+.run-btn:active { transform: translateY(1px); }
+.run-btn[aria-busy="true"] { opacity: 0.7; }
+
+.editor { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--code-bg); height: 380px; overflow: hidden; }
+.gutter-wrap { overflow: hidden; border-right: 1px solid var(--rule); }
+.gutter {
+  margin: 0; padding: 14px 10px 14px 14px; text-align: right; color: var(--lock);
+  font: 400 13.5px/1.6 var(--f-mono); user-select: none; font-variant-numeric: tabular-nums;
+}
+#code {
+  width: 100%; height: 100%; resize: none; border: 0; outline: none; background: transparent; color: var(--ink);
+  padding: 14px 16px; font: 400 13.5px/1.6 var(--f-mono); tab-size: 2; white-space: pre; overflow: auto;
+}
+#code:focus-visible { box-shadow: inset 0 0 0 2px var(--hl); }
+
+.console { border-top: 1px solid var(--rule); }
+.console-head { display: flex; justify-content: space-between; padding: 8px 16px; font: 500 11px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+.console pre {
+  margin: 0; padding: 4px 16px 14px; max-height: 170px; overflow: auto; font: 400 12.5px/1.55 var(--f-mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; color: var(--muted);
+}
+.console .err { color: var(--fail); }
+.console .ok { color: var(--pass); }
+.console .lg { color: var(--ink); }
+
+/* Finish */
+.finish { padding: 22px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px 28px; align-items: start; border: 2px solid var(--ink); }
+.finish h2 { margin: 0 0 6px; font: 800 30px/1.05 var(--f-display); letter-spacing: -0.02em; }
+.finish h2 mark { background: linear-gradient(transparent 55%, var(--hl) 55%, var(--hl) 92%, transparent 92%); color: inherit; }
+.finish p { margin: 0; color: var(--muted); max-width: 60ch; }
+.verdict { display: flex; gap: 26px; margin-top: 14px; flex-wrap: wrap; }
+.share { display: grid; gap: 10px; justify-items: start; }
+.grid-out { margin: 0; font: 400 15px/1.25 var(--f-mono); padding: 12px 14px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule); white-space: pre; overflow-x: auto; max-width: 100%; }
+.finish details { grid-column: 1 / -1; }
+.finish summary { cursor: pointer; font-weight: 600; }
+.finish details pre { margin: 10px 0 0; padding: 14px 16px; border-radius: 10px; background: var(--code-bg); border: 1px solid var(--rule); font-size: 13px; line-height: 1.6; overflow-x: auto; }
+.copied { font-size: 13px; color: var(--pass); }
+
+.rules { padding: 16px 22px; }
+.rules summary { cursor: pointer; font: 800 16px/1.2 var(--f-display); }
+.rules ol { margin: 12px 0 4px; padding-left: 20px; display: grid; gap: 6px; max-width: 70ch; }
+.rules li::marker { font-family: var(--f-mono); color: var(--muted); }
+
+/* Players need to see === and <= as typed, not as ligatures. */
+#code, .sig, .t .expr, .t .got, .console pre, .grid-out, .finish details pre { font-variant-ligatures: none; }
+
+@media (max-width: 900px) {
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .finish { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .wrap { padding-inline: 16px; }
+  .cycle { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .phase { justify-content: center; padding: 10px 6px; font-size: 13px; }
+  .phase:nth-child(3) { border-right: 0; }
+  .cycle-msg { grid-column: 1 / -1; border-top: 1px solid var(--rule); }
+  .spec h1 { font-size: 28px; }
+  .editor { height: 320px; }
+  .daynav .day { min-width: 0; }
+  .stats { gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="mark">T<sup>3</sup>D</span>
+      <span class="tag">Test Driven<br>Development Daily</span>
+    </div>
+    <nav class="daynav" aria-label="Choose a day">
+      <button id="prev" type="button" aria-label="Previous kata">‹</button>
+      <div class="day"><b id="kataNum">Kata #1</b><span id="kataDate"></span></div>
+      <button id="next" type="button" aria-label="Next kata">›</button>
+      <button id="todayBtn" type="button" class="today-link" hidden>Today</button>
+    </nav>
+    <div class="stats">
+      <div class="stat"><small>Runs</small><b id="runs">0 <em>/ par 0</em></b></div>
+      <div class="stat"><small>Time</small><b id="time">0:00</b></div>
+      <div class="stat"><small>Streak</small><b id="streak">0</b></div>
+    </div>
+  </header>
+
+  <section class="cycle" aria-live="polite">
+    <div class="phase red" id="phRed">Red</div>
+    <div class="phase green" id="phGreen">Green</div>
+    <div class="phase refactor" id="phRefactor">Refactor</div>
+    <div class="cycle-msg" id="cycleMsg"></div>
+  </section>
+
+  <section class="card finish" id="finish" hidden>
+    <div>
+      <h2 id="finishTitle">Kata <mark>complete</mark></h2>
+      <p id="finishText"></p>
+      <div class="verdict">
+        <div class="stat"><small>Runs</small><b id="fRuns">0</b></div>
+        <div class="stat"><small>Par</small><b id="fPar">0</b></div>
+        <div class="stat"><small>Time</small><b id="fTime">0:00</b></div>
+      </div>
+    </div>
+    <div class="share">
+      <pre class="grid-out" id="shareGrid"></pre>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <button type="button" class="run-btn" id="copyBtn">Copy result</button>
+        <span class="copied" id="copied" hidden>Copied</span>
+      </div>
+    </div>
+    <details id="refBox">
+      <summary>Compare with a reference solution</summary>
+      <pre><code id="refCode"></code></pre>
+    </details>
+  </section>
+
+  <main class="board">
+    <section class="card spec">
+      <div class="eyebrow" id="specEyebrow">Today's kata</div>
+      <h1 id="title"></h1>
+      <div class="sig" id="sig"></div>
+      <p class="brief" id="brief"></p>
+      <div class="tests-head"><h2>Tests</h2><span id="testCount"></span></div>
+      <ol class="tests" id="tests"></ol>
+      <button type="button" class="next-btn" id="nextTest">Reveal next test →</button>
+      <p class="hint" id="nextHint"></p>
+    </section>
+
+    <section class="card bench">
+      <div class="toolbar">
+        <div class="file"><i></i><span id="fileName">kata.js</span><span class="dirty" id="dirty" hidden>edited since last run</span></div>
+        <div class="tools">
+          <button type="button" class="btn-ghost" id="resetBtn">Reset to stub</button>
+          <button type="button" class="run-btn" id="runBtn">Run tests <kbd id="kbd">Ctrl ↵</kbd></button>
+        </div>
+      </div>
+      <div class="editor">
+        <div class="gutter-wrap"><pre class="gutter" id="gutter" aria-hidden="true">1</pre></div>
+        <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Your solution"></textarea>
+      </div>
+      <div class="console">
+        <div class="console-head"><span>Runner output</span><span id="runStamp"></span></div>
+        <pre id="out"></pre>
+      </div>
+    </section>
+  </main>
+
+  <details class="card rules" id="rules">
+    <summary>How to play</summary>
+    <ol>
+      <li>Every day brings one kata: a function stub and a hidden stack of tests. You start with the first test only.</li>
+      <li>Write just enough code to turn it green, then press <b>Run tests</b>. Each run counts toward your score.</li>
+      <li>When everything shown is green, reveal the next test. Revealing is free, and if your code already handles it, it lights up green straight away.</li>
+      <li>Clear every test in as few runs as you can. Par is one run per test; a general solution can beat it.</li>
+      <li>Once the last test passes, runs stop counting. Refactor as much as you like, then share your grid.</li>
+    </ol>
+  </details>
+</div>
+
+<script>
+const PUZZLES = [
+  {
+    title: "FizzBuzz", fn: "fizzBuzz", params: "n", file: "fizz-buzz.js",
+    brief: 'Return <code>n</code> as a string, except return <code>"Fizz"</code> for multiples of 3, <code>"Buzz"</code> for multiples of 5, and <code>"FizzBuzz"</code> for multiples of both.',
+    tests: [[[1], "1"], [[2], "2"], [[3], "Fizz"], [[5], "Buzz"], [[6], "Fizz"], [[10], "Buzz"], [[15], "FizzBuzz"], [[45], "FizzBuzz"]],
+    ref: `function fizzBuzz(n) {
+  let out = "";
+  if (n % 3 === 0) out += "Fizz";
+  if (n % 5 === 0) out += "Buzz";
+  return out || String(n);
+}`
+  },
+  {
+    title: "Leap Year", fn: "isLeapYear", params: "year", file: "leap-year.js",
+    brief: "Return <code>true</code> if <code>year</code> is a leap year in the Gregorian calendar: divisible by 4, except centuries, which must also be divisible by 400.",
+    tests: [[[2023], false], [[2024], true], [[1996], true], [[1900], false], [[2000], true], [[2100], false], [[2400], true]],
+    ref: `function isLeapYear(year) {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}`
+  },
+  {
+    title: "Prime Factors", fn: "primeFactors", params: "n", file: "prime-factors.js",
+    brief: "Return the prime factors of <code>n</code> in ascending order, repeating a factor as often as it divides. <code>1</code> has no prime factors.",
+    tests: [[[1], []], [[2], [2]], [[3], [3]], [[4], [2, 2]], [[6], [2, 3]], [[8], [2, 2, 2]], [[9], [3, 3]], [[360], [2, 2, 2, 3, 3, 5]], [[9973], [9973]]],
+    ref: `function primeFactors(n) {
+  const factors = [];
+  for (let d = 2; n > 1; d++) {
+    for (; n % d === 0; n /= d) factors.push(d);
+  }
+  return factors;
+}`
+  },
+  {
+    title: "String Calculator", fn: "add", params: "numbers", file: "string-calculator.js",
+    brief: 'Sum the numbers in a string. They are separated by commas or newlines. An empty string is <code>0</code>. Numbers over 1000 are ignored. A first line of <code>//;</code> sets a custom single-character delimiter.',
+    tests: [[[""], 0], [["4"], 4], [["1,2"], 3], [["1,2,3,4"], 10], [["1\n2,3"], 6], [["//;\n1;2"], 3], [["2,1001"], 2], [["1000,1"], 1001]],
+    ref: `function add(numbers) {
+  let delims = [",", "\\n"];
+  if (numbers.startsWith("//")) {
+    delims.push(numbers[2]);
+    numbers = numbers.slice(4);
+  }
+  for (const d of delims) numbers = numbers.split(d).join(",");
+  return numbers
+    .split(",")
+    .map(Number)
+    .filter((n) => n <= 1000)
+    .reduce((sum, n) => sum + n, 0);
+}`
+  },
+  {
+    title: "Roman Numerals", fn: "toRoman", params: "n", file: "roman-numerals.js",
+    brief: "Convert a positive integer up to 3999 into Roman numerals, using subtractive forms like <code>IV</code> and <code>XC</code>.",
+    tests: [[[1], "I"], [[2], "II"], [[4], "IV"], [[5], "V"], [[9], "IX"], [[14], "XIV"], [[40], "XL"], [[90], "XC"], [[400], "CD"], [[1994], "MCMXCIV"], [[2026], "MMXXVI"]],
+    ref: `function toRoman(n) {
+  const table = [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
+    [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]];
+  let out = "";
+  for (const [value, glyph] of table) {
+    while (n >= value) { out += glyph; n -= value; }
+  }
+  return out;
+}`
+  },
+  {
+    title: "Balanced Brackets", fn: "isBalanced", params: "s", file: "balanced-brackets.js",
+    brief: "Return <code>true</code> if every <code>()</code>, <code>[]</code> and <code>{}</code> in the string opens and closes in the right order. Ignore every other character.",
+    tests: [[[""], true], [["()"], true], [["("], false], [["()[]{}"], true], [["([])"], true], [["([)]"], false], [[")("], false], [["{[()()]}"], true], [["a(b)c"], true]],
+    ref: `function isBalanced(s) {
+  const pairs = { ")": "(", "]": "[", "}": "{" };
+  const stack = [];
+  for (const ch of s) {
+    if ("([{".includes(ch)) stack.push(ch);
+    else if (ch in pairs && stack.pop() !== pairs[ch]) return false;
+  }
+  return stack.length === 0;
+}`
+  },
+  {
+    title: "Caesar Cipher", fn: "caesar", params: "text, shift", file: "caesar.js",
+    brief: "Shift every letter by <code>shift</code> places, wrapping around the alphabet and keeping its case. Leave everything else alone. Shifts can be negative or larger than 26.",
+    tests: [[["abc", 1], "bcd"], [["xyz", 3], "abc"], [["ABC", 1], "BCD"], [["Hello, World!", 13], "Uryyb, Jbeyq!"], [["abc", -1], "zab"], [["abc", 27], "bcd"]],
+    ref: `function caesar(text, shift) {
+  const k = ((shift % 26) + 26) % 26;
+  return text.replace(/[a-z]/gi, (ch) => {
+    const base = ch <= "Z" ? 65 : 97;
+    return String.fromCharCode(((ch.charCodeAt(0) - base + k) % 26) + base);
+  });
+}`
+  },
+  {
+    title: "Run-Length Encoding", fn: "encode", params: "s", file: "run-length.js",
+    brief: "Compress runs of the same character into a count followed by the character. A run of one keeps no count, so <code>\"aaab\"</code> becomes <code>\"3ab\"</code>.",
+    tests: [[[""], ""], [["a"], "a"], [["aa"], "2a"], [["aaab"], "3ab"], [["aabbbaa"], "2a3b2a"], [["WWWWWWWWWWWWB"], "12WB"], [["  hi"], "2 hi"]],
+    ref: `function encode(s) {
+  return s.replace(/(.)\\1*/g, (run, ch) => (run.length > 1 ? run.length : "") + ch);
+}`
+  },
+  {
+    title: "Luhn Check", fn: "isValidLuhn", params: "number", file: "luhn.js",
+    brief: "Return <code>true</code> if the number passes the Luhn checksum used on card numbers. Spaces are allowed and ignored. Anything with one digit or fewer, or any character other than a digit or space, is invalid.",
+    tests: [[["0"], false], [["059"], true], [["59"], true], [["79927398713"], true], [["79927398710"], false], [["4539 3195 0343 6467"], true], [["8273 1232 7352 0569"], false], [["055a 444 285"], false], [[" 0"], false]],
+    ref: `function isValidLuhn(number) {
+  const digits = number.replace(/ /g, "");
+  if (digits.length <= 1 || /\\D/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}`
+  },
+  {
+    title: "Bowling Score", fn: "score", params: "rolls", file: "bowling.js",
+    brief: "Score a complete ten-pin game from its rolls. A spare adds the next roll as a bonus, a strike adds the next two, and the tenth frame gets its bonus rolls in the same array.",
+    tests: [
+      [[Array(20).fill(0)], 0, "[0 × 20]"],
+      [[Array(20).fill(1)], 20, "[1 × 20]"],
+      [[[5, 5, 3, ...Array(17).fill(0)]], 16, "[5, 5, 3, 0 × 17]"],
+      [[[10, 3, 4, ...Array(16).fill(0)]], 24, "[10, 3, 4, 0 × 16]"],
+      [[Array(10).fill([9, 0]).flat()], 90, "[9, 0 × 10]"],
+      [[[...Array(18).fill(0), 5, 5, 5]], 15, "[0 × 18, 5, 5, 5]"],
+      [[Array(12).fill(10)], 300, "[10 × 12]"]
+    ],
+    ref: `function score(rolls) {
+  let total = 0, i = 0;
+  for (let frame = 0; frame < 10; frame++) {
+    if (rolls[i] === 10) { total += 10 + rolls[i + 1] + rolls[i + 2]; i += 1; }
+    else if (rolls[i] + rolls[i + 1] === 10) { total += 10 + rolls[i + 2]; i += 2; }
+    else { total += rolls[i] + rolls[i + 1]; i += 2; }
+  }
+  return total;
+}`
+  },
+  {
+    title: "Word Wrap", fn: "wrap", params: "text, width", file: "word-wrap.js",
+    brief: "Break <code>text</code> into lines no longer than <code>width</code>, joined with <code>\"\\n\"</code>. Break at spaces where you can, and split a word only when it is longer than a whole line.",
+    tests: [[["", 5], ""], [["hello", 10], "hello"], [["hello world", 5], "hello\nworld"], [["hello world", 11], "hello world"], [["the quick brown fox", 10], "the quick\nbrown fox"], [["abcdefghij", 4], "abcd\nefgh\nij"], [["a b c d", 3], "a b\nc d"]],
+    ref: `function wrap(text, width) {
+  const lines = [];
+  let line = "";
+  for (let word of text.split(" ").filter(Boolean)) {
+    while (word.length > width) {
+      if (line) { lines.push(line); line = ""; }
+      lines.push(word.slice(0, width));
+      word = word.slice(width);
+    }
+    if (!line) line = word;
+    else if (line.length + 1 + word.length <= width) line += " " + word;
+    else { lines.push(line); line = word; }
+  }
+  if (line) lines.push(line);
+  return lines.join("\\n");
+}`
+  },
+  {
+    title: "Anagrams", fn: "isAnagram", params: "a, b", file: "anagram.js",
+    brief: "Return <code>true</code> if the two phrases use exactly the same letters. Ignore case and spaces.",
+    tests: [[["listen", "silent"], true], [["abc", "abd"], false], [["a", "aa"], false], [["Listen", "Silent"], true], [["Dormitory", "dirty room"], true], [["aab", "abb"], false]],
+    ref: `function isAnagram(a, b) {
+  const key = (s) => s.toLowerCase().replace(/ /g, "").split("").sort().join("");
+  return key(a) === key(b);
+}`
+  },
+  {
+    title: "Diamond", fn: "diamond", params: "letter", file: "diamond.js",
+    brief: "Draw a diamond that widens from <code>A</code> to the given letter and back. Rows are joined with <code>\"\\n\"</code> and padded with spaces so every row is the same width.",
+    tests: [[["A"], "A"], [["B"], " A \nB B\n A "], [["C"], "  A  \n B B \nC   C\n B B \n  A  "], [["D"], "   A   \n  B B  \n C   C \nD     D\n C   C \n  B B  \n   A   "]],
+    ref: `function diamond(letter) {
+  const n = letter.charCodeAt(0) - 65;
+  const rows = [];
+  for (let i = 0; i <= n; i++) {
+    const ch = String.fromCharCode(65 + i);
+    const pad = " ".repeat(n - i);
+    rows.push(i === 0 ? pad + ch + pad : pad + ch + " ".repeat(2 * i - 1) + ch + pad);
+  }
+  return rows.concat(rows.slice(0, -1).reverse()).join("\\n");
+}`
+  }
+];
+
+const EPOCH = Date.UTC(2026, 9, 1);
+const DAY = 864e5;
+const $ = (id) => document.getElementById(id);
+
+const store = {
+  get(key, fallback) {
+    try { const v = localStorage.getItem("t3d:v1:" + key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem("t3d:v1:" + key, JSON.stringify(value)); } catch {}
+  }
+};
+
+function todayNum() {
+  const d = new Date();
+  return Math.max(1, Math.floor((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - EPOCH) / DAY) + 1);
+}
+function dateLabel(num) {
+  return new Date(EPOCH + (num - 1) * DAY).toLocaleDateString(undefined, { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+const puzzleFor = (num) => PUZZLES[(num - 1) % PUZZLES.length];
+const stubFor = (p) => `function ${p.fn}(${p.params}) {\n  throw new Error("Not implemented");\n}\n`;
+
+function fmt(v) {
+  if (v === undefined) return "undefined";
+  if (typeof v === "number" && Number.isNaN(v)) return "NaN";
+  if (typeof v === "function") return "[Function]";
+  try { const s = JSON.stringify(v); return s === undefined ? String(v) : s; } catch { return String(v); }
+}
+
+// Runs inside the worker, appended after the player's code so their line numbers stay accurate.
+function harness(name, f, fmt) {
+  let current = -1;
+  const logs = [];
+  const log = (...args) => logs.push({ t: current, m: args.map((a) => (typeof a === "string" ? a : fmt(a))).join(" ") });
+  console.log = console.info = console.warn = console.error = console.debug = log;
+  self.onmessage = (e) => {
+    if (typeof f !== "function") { postMessage({ fatal: "ReferenceError: " + name + " is not defined as a function." }); return; }
+    const results = e.data.map((t, i) => {
+      current = i;
+      try {
+        const actual = f(...t.args);
+        const shown = fmt(actual);
+        return { ok: typeof actual === typeof t.expected && shown === fmt(t.expected), actual: shown };
+      } catch (err) {
+        return { ok: false, error: (err && err.name ? err.name + ": " : "") + (err && err.message !== undefined ? err.message : String(err)) };
+      }
+    });
+    postMessage({ results, logs });
+  };
+}
+
+function execute(code, p, tests) {
+  return new Promise((resolve) => {
+    const src = code + "\n;(" + harness + ")(" + JSON.stringify(p.fn) + ", typeof " + p.fn + " === 'function' ? " + p.fn + " : undefined, " + fmt + ");\n";
+    let url, worker;
+    try {
+      url = URL.createObjectURL(new Blob([src], { type: "text/javascript" }));
+      worker = new Worker(url);
+    } catch (err) {
+      resolve({ fatal: "The test runner could not start: " + err.message });
+      return;
+    }
+    const finish = (r) => { clearTimeout(timer); worker.terminate(); URL.revokeObjectURL(url); resolve(r); };
+    const timer = setTimeout(() => finish({ fatal: "Timed out after 2 seconds. Look for a loop that never ends." }), 2000);
+    worker.onmessage = (e) => finish(e.data);
+    worker.onerror = (e) => { e.preventDefault(); finish({ fatal: (e.message || "Script error") + (e.lineno ? " (line " + e.lineno + ")" : "") }); };
+    worker.postMessage(tests.map(([args, expected]) => ({ args, expected })));
+  });
+}
+
+let viewNum = todayNum();
+let p, s;
+let running = false;
+let tick = null;
+
+function freshState(puzzle) {
+  return { code: stubFor(puzzle), revealed: 1, results: [], rows: [], done: false, startedAt: null, finishedAt: null, lastRunCode: null, log: [] };
+}
+function load(num) {
+  viewNum = num;
+  p = puzzleFor(num);
+  s = Object.assign(freshState(p), store.get("kata:" + num, {}));
+  lastRevealed = s.revealed;
+  $("code").value = s.code;
+  syncGutter();
+  render();
+}
+function save() { store.set("kata:" + viewNum, s); }
+
+function streak() {
+  const solved = store.get("solved", {});
+  let n = todayNum();
+  if (!solved[n]) n--;
+  let count = 0;
+  while (n >= 1 && solved[n]) { count++; n--; }
+  return count;
+}
+
+function clock(ms) {
+  const t = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = String(t % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
+function elapsed() {
+  if (!s.startedAt) return 0;
+  return (s.finishedAt || Date.now()) - s.startedAt;
+}
+
+const esc = (str) => String(str).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function argsText(t) {
+  return t[2] !== undefined ? t[2] : t[0].map(fmt).join(", ");
+}
+
+function phase() {
+  const shown = s.results.slice(0, s.revealed);
+  const allGreen = shown.length === s.revealed && shown.every((r) => r && r.ok);
+  if (s.done && allGreen) return "refactor";
+  return allGreen ? "green" : "red";
+}
+
+let lastRevealed = 0;
+function render() {
+  const today = todayNum();
+  $("kataNum").textContent = "Kata #" + viewNum;
+  $("kataDate").textContent = dateLabel(viewNum);
+  $("prev").disabled = viewNum <= 1;
+  $("next").disabled = viewNum >= today;
+  $("todayBtn").hidden = viewNum === today;
+  $("specEyebrow").textContent = viewNum === today ? "Today's kata" : "From the archive";
+
+  $("title").textContent = p.title;
+  $("sig").innerHTML = `<b>${p.fn}</b>(${esc(p.params)})`;
+  $("brief").innerHTML = p.brief;
+  $("fileName").textContent = p.file;
+
+  const total = p.tests.length;
+  const passing = s.results.slice(0, s.revealed).filter((r) => r && r.ok).length;
+  $("testCount").textContent = `${passing} / ${total} green`;
+
+  const items = p.tests.map((t, i) => {
+    if (i >= s.revealed) {
+      return `<li class="t locked"><span class="dot">${i + 1}</span><div class="expr">Locked. Turn every test above green to reveal it.</div></li>`;
+    }
+    const r = s.results[i];
+    const cls = r ? (r.ok ? "pass" : "fail") : "";
+    const fresh = i >= lastRevealed && lastRevealed > 0 ? " new" : "";
+    const got = r && !r.ok ? `<div class="got">${r.error ? esc(r.error) : "got " + esc(r.actual)}</div>` : "";
+    return `<li class="t ${cls}${fresh}"><span class="dot">${r ? (r.ok ? "✓" : "✗") : i + 1}</span><div><div class="expr"><span class="fn">${p.fn}</span>(${esc(argsText(t))})<span class="arrow">→</span>${esc(fmt(t[1]))}</div>${got}</div></li>`;
+  });
+  const shownLocked = Math.min(total, s.revealed + 1);
+  $("tests").innerHTML = items.slice(0, shownLocked).join("") +
+    (total > shownLocked ? `<li class="t locked"><span class="dot">+${total - shownLocked}</span><div class="expr">More tests waiting further down the stack.</div></li>` : "");
+  lastRevealed = s.revealed;
+
+  const ph = phase();
+  const dirty = s.code !== s.lastRunCode;
+  $("phRed").classList.toggle("on", ph === "red");
+  $("phGreen").classList.toggle("on", ph === "green");
+  $("phRefactor").classList.toggle("on", ph === "green" || ph === "refactor");
+  $("dirty").hidden = !dirty || !s.lastRunCode;
+
+  let msg;
+  if (s.done) {
+    msg = ph === "refactor"
+      ? "<strong>Kata complete.</strong> Runs no longer count, so refactor freely."
+      : "<strong>A refactor broke a test.</strong> Runs no longer count. Get back to green.";
+  } else if (ph === "red") {
+    const firstBad = s.results.slice(0, s.revealed).findIndex((r) => !r || !r.ok);
+    msg = `<strong>Make test ${firstBad + 1} pass.</strong> Write the simplest code that turns it green, then run.`;
+  } else {
+    msg = dirty
+      ? "<strong>Green, but you've edited since.</strong> Run again to confirm before revealing the next test."
+      : "<strong>All green.</strong> Tidy up if you like, then reveal the next test.";
+  }
+  $("cycleMsg").innerHTML = msg;
+
+  const canReveal = !s.done && ph === "green" && !dirty && s.revealed < total;
+  $("nextTest").hidden = s.done;
+  $("nextTest").disabled = !canReveal;
+  $("nextHint").hidden = s.done;
+  $("nextHint").textContent = canReveal
+    ? "Revealing is free. If your code already handles it, it goes straight to green."
+    : ph === "green" && dirty ? "Run your edited code before revealing." : "Available once every test shown is green.";
+
+  const runs = s.rows.length;
+  $("runs").innerHTML = `${runs} <em>/ par ${total}</em>`;
+  $("streak").textContent = streak();
+  renderClock();
+
+  $("finish").hidden = !s.done;
+  if (s.done) renderFinish();
+
+  const lines = s.log.map((l) => `<span class="${l.c}">${esc(l.m)}</span>`).join("\n");
+  $("out").innerHTML = lines || '<span>Press Run tests to check your code. Anything you console.log appears here.</span>';
+  $("runStamp").textContent = runs ? `run ${runs}` : "";
+}
+
+function renderClock() {
+  $("time").textContent = clock(elapsed());
+  if (s.startedAt && !s.finishedAt) { if (!tick) tick = setInterval(() => $("time").textContent = clock(elapsed()), 1000); }
+  else if (tick) { clearInterval(tick); tick = null; }
+}
+
+function shareText() {
+  const total = p.tests.length;
+  const grid = s.rows.map((row) => row.map((ok) => (ok ? "🟩" : "🟥")).join("") + "⬜".repeat(total - row.length)).join("\n");
+  return `T3D #${viewNum} · ${p.title}\nRuns ${s.rows.length} · Par ${total} · ${clock(elapsed())}\n${grid}`;
+}
+
+function renderFinish() {
+  const total = p.tests.length, runs = s.rows.length, diff = runs - total;
+  const headline = diff < 0 ? "Under par" : diff === 0 ? "On par" : "Kata complete";
+  $("finishTitle").innerHTML = `${headline}, <mark>all green</mark>`;
+  $("finishText").textContent = diff < 0
+    ? `You cleared ${total} tests in ${runs} run${runs === 1 ? "" : "s"}. Your code handled tests before you saw them.`
+    : diff === 0
+      ? `One run per test, in strict red-green rhythm.`
+      : `${runs} runs for ${total} tests. Shorter steps and smaller changes usually bring that down.`;
+  $("fRuns").textContent = runs;
+  $("fPar").textContent = total;
+  $("fTime").textContent = clock(elapsed());
+  $("shareGrid").textContent = shareText();
+  $("refCode").textContent = p.ref;
+}
+
+function markStarted() {
+  if (!s.startedAt) { s.startedAt = Date.now(); save(); renderClock(); }
+}
+
+function complete() {
+  s.done = true;
+  s.finishedAt = Date.now();
+  const solved = store.get("solved", {});
+  solved[viewNum] = true;
+  store.set("solved", solved);
+  if (viewNum === todayNum()) markShelf();
+}
+
+function markShelf() {
+  const d = new Date();
+  const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  try {
+    const shelf = JSON.parse(localStorage.getItem("dailies-v1")) || {};
+    shelf.t3d = key;
+    localStorage.setItem("dailies-v1", JSON.stringify(shelf));
+    localStorage.setItem("t3d-stats-v1", JSON.stringify({ streak: streak() }));
+  } catch {}
+}
+
+function applyResult(res, upto) {
+  const log = [];
+  if (res.fatal) {
+    for (let i = 0; i < upto; i++) s.results[i] = { ok: false, error: res.fatal };
+    log.push({ c: "err", m: res.fatal });
+  } else {
+    res.results.forEach((r, i) => { s.results[i] = r; });
+    for (const l of res.logs) if (l.t < upto) log.push({ c: "lg", m: (l.t >= 0 ? `[test ${l.t + 1}] ` : "") + l.m });
+    const pass = res.results.filter((r) => r.ok).length;
+    log.push({ c: pass === upto ? "ok" : "err", m: `${pass} of ${upto} passing` });
+  }
+  s.log = log;
+}
+
+async function runTests() {
+  if (running) return;
+  running = true;
+  $("runBtn").setAttribute("aria-busy", "true");
+  markStarted();
+  const code = $("code").value;
+  s.code = code;
+  const res = await execute(code, p, p.tests.slice(0, s.revealed));
+  applyResult(res, s.revealed);
+  s.lastRunCode = code;
+  const allGreen = s.results.slice(0, s.revealed).every((r) => r && r.ok);
+  if (!s.done) {
+    s.rows.push(s.results.slice(0, s.revealed).map((r) => !!r.ok));
+    if (allGreen && s.revealed === p.tests.length) complete();
+  }
+  save();
+  running = false;
+  $("runBtn").removeAttribute("aria-busy");
+  render();
+}
+
+async function revealNext() {
+  if (running || s.done || s.revealed >= p.tests.length) return;
+  running = true;
+  s.revealed++;
+  const res = await execute(s.code, p, p.tests.slice(0, s.revealed));
+  applyResult(res, s.revealed);
+  const allGreen = s.results.slice(0, s.revealed).every((r) => r && r.ok);
+  if (allGreen && s.revealed === p.tests.length) complete();
+  save();
+  running = false;
+  render();
+}
+
+function syncGutter() {
+  const n = $("code").value.split("\n").length;
+  $("gutter").textContent = Array.from({ length: n }, (_, i) => i + 1).join("\n");
+  $("gutter").style.transform = `translateY(${-$("code").scrollTop}px)`;
+}
+
+function insert(text) {
+  const ta = $("code");
+  if (!document.execCommand || !document.execCommand("insertText", false, text)) {
+    ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, "end");
+    ta.dispatchEvent(new Event("input"));
+  }
+}
+
+let saveTimer = null;
+$("code").addEventListener("input", () => {
+  s.code = $("code").value;
+  markStarted();
+  syncGutter();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { save(); render(); }, 250);
+});
+$("code").addEventListener("scroll", syncGutter);
+$("code").addEventListener("keydown", (e) => {
+  const ta = e.target;
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); runTests(); return; }
+  if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); insert("  "); return; }
+  if (e.key === "Enter" && !e.altKey) {
+    const before = ta.value.slice(0, ta.selectionStart);
+    const line = before.slice(before.lastIndexOf("\n") + 1);
+    let indent = line.match(/^\s*/)[0];
+    if (/[{[(]\s*$/.test(line)) indent += "  ";
+    e.preventDefault();
+    insert("\n" + indent);
+  }
+});
+
+$("runBtn").addEventListener("click", runTests);
+$("nextTest").addEventListener("click", revealNext);
+
+let resetArmed = null;
+$("resetBtn").addEventListener("click", () => {
+  const btn = $("resetBtn");
+  if (!resetArmed) {
+    btn.classList.add("armed");
+    btn.textContent = "Click again to reset";
+    resetArmed = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = "Reset to stub"; resetArmed = null; }, 3000);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null;
+  btn.classList.remove("armed"); btn.textContent = "Reset to stub";
+  $("code").value = stubFor(p);
+  s.code = $("code").value;
+  save(); syncGutter(); render();
+});
+
+$("copyBtn").addEventListener("click", () => {
+  const text = shareText();
+  const done = () => { $("copied").hidden = false; setTimeout(() => $("copied").hidden = true, 2000); };
+  const fallback = () => {
+    const r = document.createRange(); r.selectNodeContents($("shareGrid"));
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    $("copied").textContent = "Selected. Press Ctrl+C to copy.";
+    $("copied").hidden = false;
+  };
+  try { navigator.clipboard.writeText(text).then(done, fallback); } catch { fallback(); }
+});
+
+$("prev").addEventListener("click", () => load(viewNum - 1));
+$("next").addEventListener("click", () => load(viewNum + 1));
+$("todayBtn").addEventListener("click", () => load(todayNum()));
+
+if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) $("kbd").textContent = "⌘ ↵";
+
+function start(data) {
+  const n = data && data.num;
+  if (!store.get("seenRules", false)) { $("rules").open = true; store.set("seenRules", true); }
+  load(n >= 1 && n <= todayNum() ? n : todayNum());
+}
+window.claude?.hot?.snapshot?.(() => ({ num: viewNum }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>
