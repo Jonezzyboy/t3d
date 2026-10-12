@@ -232,6 +232,30 @@ kbd { font: 400 0.85em/1 var(--f-mono); padding: 1px 5px; border: 1px solid var(
 .tk-com { color: var(--tk-com); font-style: italic; }
 .tk-fn { color: var(--tk-fn); }
 
+.assist, .sighelp {
+  position: absolute; z-index: 5; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px;
+  box-shadow: var(--shadow); font: 400 12.5px/1.5 var(--f-mono); font-variant-ligatures: none; color: var(--ink);
+}
+.assist { width: min(360px, calc(100% - 16px)); display: grid; overflow: hidden; }
+.assist ul { list-style: none; margin: 0; padding: 4px; max-height: 172px; overflow: auto; }
+.assist li { display: flex; align-items: center; gap: 8px; padding: 2px 6px; border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.assist li.on { background: var(--sel); }
+.assist li i { flex: none; width: 16px; text-align: center; font-style: normal; font-weight: 600; font-size: 11px; color: var(--muted); }
+.assist li i.fn { color: var(--tk-fn); }
+.assist li i.kw { color: var(--tk-kw); }
+.assist li i.ns { color: var(--tk-num); }
+.assist li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.assist li span b { font-weight: 600; color: var(--tk-kw); }
+.assist li small { color: var(--muted); font: 400 11px/1 var(--f-body); }
+.assist-doc, .sighelp { padding: 7px 10px; }
+.assist-doc { border-top: 1px solid var(--rule); background: var(--code-bg); }
+.assist-doc code, .sighelp code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.assist-doc p, .sighelp p { margin: 3px 0 0; font: 400 12px/1.45 var(--f-body); color: var(--muted); }
+.sighelp { max-width: min(520px, calc(100% - 16px)); pointer-events: none; }
+.sighelp code + code { margin-top: 2px; }
+.sighelp b { color: var(--tk-kw); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.sighelp .own { color: var(--muted); }
+
 .console { border-top: 1px solid var(--rule); display: grid; }
 .console-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px 8px 16px; font: 500 11px/1 var(--f-body); text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
 #out {
@@ -372,6 +396,7 @@ kbd { font: 400 0.85em/1 var(--f-mono); padding: 1px 5px; border: 1px solid var(
       <div class="toolbar">
         <div class="file"><i></i><span id="fileName">kata.js</span><span class="dirty" id="dirty" hidden>edited since last run</span></div>
         <div class="tools">
+          <button type="button" class="btn-ghost" id="formatBtn" title="Format (Shift Alt F)">Format</button>
           <button type="button" class="btn-ghost" id="resetBtn">Reset to stub</button>
           <button type="button" class="run-btn" id="runBtn">Run tests <kbd class="mod">Ctrl ↵</kbd></button>
         </div>
@@ -382,6 +407,8 @@ kbd { font: 400 0.85em/1 var(--f-mono); padding: 1px 5px; border: 1px solid var(
           <pre class="hl" id="hl" aria-hidden="true"></pre>
           <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off" aria-label="Your solution"></textarea>
         </div>
+        <div class="assist" id="assist" hidden><ul id="assistList" role="listbox" aria-label="Suggestions"></ul><div class="assist-doc" id="assistDoc"></div></div>
+        <div class="sighelp" id="sighelp" hidden></div>
       </div>
       <div class="console">
         <div class="console-head"><span>Console</span><button type="button" class="btn-ghost small" id="clearBtn">Clear</button></div>
@@ -405,12 +432,13 @@ kbd { font: 400 0.85em/1 var(--f-mono); padding: 1px 5px; border: 1px solid var(
       <li>Clear every test in as few runs as you can. Par is one run per test; a general solution can beat it.</li>
       <li>Once the last test passes, runs stop counting. Refactor as much as you like, then share your grid.</li>
       <li>Stuck? Anything you <code>console.log</code> shows up under the test that printed it, and <code>console.table</code>, <code>count</code>, <code>time</code> and <code>assert</code> work too. Type a call like <code>fizzBuzz(15)</code> into the console prompt to try your own inputs; each call is tallied as a probe on your result.</li>
-      <li>Shortcuts: <kbd class="mod">Ctrl ↵</kbd> runs the tests, <kbd class="modslash">Ctrl /</kbd> toggles comments, <kbd>Tab</kbd> and <kbd>Shift Tab</kbd> indent. Click a line number in an error to jump to it.</li>
+      <li>Shortcuts: <kbd class="mod">Ctrl ↵</kbd> runs the tests, <kbd class="modslash">Ctrl /</kbd> toggles comments, <kbd>Tab</kbd> and <kbd>Shift Tab</kbd> indent, <kbd>Shift Alt F</kbd> formats. Suggestions pop up as you type; <kbd>Ctrl Space</kbd> brings them back, and <kbd>Tab</kbd> or <kbd>Enter</kbd> picks one. Click a line number in an error to jump to it.</li>
     </ol>
   </details>
 </div>
 
 <script src="katas.js"></script>
+<script src="jsapi.js"></script>
 <script>
 const EPOCH = Date.UTC(2026, 9, 1);
 const DAY = 864e5;
@@ -666,6 +694,7 @@ function load(num) {
   $("code").value = s.code;
   $("code").scrollTop = $("code").scrollLeft = 0;
   probeHistory.length = 0;
+  hideAssist();
   scrollConsole = true;
   render();
 }
@@ -1044,6 +1073,379 @@ function jumpToLine(n) {
   ta.closest(".bench").scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
+/* ---------- Completion ---------- */
+
+const IDENT = /[A-Za-z_$][\w$]*$/;
+
+function parseApi(owner, block, isStatic) {
+  return block.trim().split("\n").map((line) => {
+    const [, name, params, ret, doc] = line.match(/^([\w$]+)(?:\((.*)\))?\s*→\s*(\S+)\s*\|\s*(.*)$/);
+    return { name, params: params ?? null, ret, doc, owner, static: isStatic };
+  });
+}
+const apiGroup = (group, isStatic) => Object.fromEntries(Object.entries(group).map(([owner, block]) => [owner, parseApi(owner, block, isStatic)]));
+const API = { instance: apiGroup(JS_API.instance, false), static: apiGroup(JS_API.static, true), globals: parseApi("", JS_API.globals, false) };
+const WORD_ITEMS = [
+  ...Object.keys(API.static).map((name) => ({ name, params: null, ret: "", doc: `Type . to see what ${name} has.`, owner: "", kind: "ns" })),
+  ...[...KEYWORDS, ...LITERALS].map((name) => ({ name, params: null, kind: "kw", label: "keyword" }))
+];
+const ICONS = { fn: "ƒ", prop: "•", ns: "{}", kw: "k", var: "x" };
+
+const assist = { open: false, forced: false, items: [], index: 0, start: 0 };
+let suppressAssist = false;
+
+// Strings, comments and regexes blanked to spaces, so bracket and identifier scans skip them while indexes still line up.
+function mask(src) {
+  return tokenize(src).map(([cls, text]) => (cls === "str" || cls === "com" || cls === "re" ? text.replace(/[^\n]/g, " ") : text)).join("");
+}
+
+function skipWs(src, i) {
+  while (i > 0 && /\s/.test(src[i - 1])) i--;
+  return i;
+}
+
+function openerOf(msk, close) {
+  let depth = 0;
+  for (let i = close; i >= 0; i--) {
+    if (")]}".includes(msk[i])) depth++;
+    else if ("([{".includes(msk[i]) && --depth === 0) return i;
+  }
+  return -1;
+}
+
+// End of the receiver expression when the identifier at `start` follows a member dot, else -1.
+function receiverEnd(msk, start) {
+  if (msk[start - 1] !== "." || msk[start - 2] === ".") return -1;
+  return msk[start - 2] === "?" ? start - 2 : start - 1;
+}
+
+function splitTop(params) {
+  const out = [];
+  let depth = 0, cur = "";
+  for (const c of params) {
+    if (c === "," && !depth) { out.push(cur.trim()); cur = ""; continue; }
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    cur += c;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+function members(type) {
+  if (type && type.startsWith("ns:")) return API.static[type.slice(3)];
+  return API.instance[type] || Object.values(API.instance).flat();
+}
+
+function userFunctions(msk) {
+  const re = /\bfunction\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(([^)]*)\)|\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s+)?(?:\(([^)]*)\)|([A-Za-z_$][\w$]*))\s*=>/g;
+  return [...msk.matchAll(re)].map((m) => ({
+    name: m[1] || m[3], params: (m[2] ?? m[4] ?? m[5]).replace(/\s+/g, " ").trim(), ret: null, doc: "", owner: "", label: "your code"
+  }));
+}
+
+function lookup(src, msk, start, name, depth) {
+  const recv = receiverEnd(msk, start);
+  if (recv >= 0) return members(typeBefore(src, msk, recv, depth + 1)).filter((e) => e.name === name);
+  return [...userFunctions(msk), ...API.globals].filter((e) => e.name === name).slice(0, 1);
+}
+
+const agreed = (rets) => (rets.length && rets.every((r) => r === rets[0]) ? rets[0] : null);
+const typeOfValue = (v) => (Array.isArray(v) ? "Array" : { string: "String", number: "Number", boolean: "Boolean" }[typeof v] || null);
+
+// Best guess at the type of the expression ending at `end`: "Array", "String", …, "ns:Math" for a namespace, or null.
+function typeBefore(src, msk, end, depth = 0) {
+  end = skipWs(src, end);
+  if (!end || depth > 6) return null;
+  const c = src[end - 1];
+  if (msk[end - 1] !== c) return /["'`]/.test(c) ? "String" : null;
+  if (c === "]") {
+    const open = openerOf(msk, end - 1);
+    if (open < 0) return null;
+    return /[\w$)\]]/.test(msk[skipWs(msk, open) - 1] || "") ? null : "Array";
+  }
+  if (c === ")") {
+    const open = openerOf(msk, end - 1);
+    if (open < 0) return null;
+    const at = skipWs(msk, open);
+    const m = IDENT.exec(msk.slice(0, at));
+    if (!m) return typeBefore(src, msk, end - 1, depth + 1);
+    return agreed(lookup(src, msk, at - m[0].length, m[0], depth).map((e) => e.ret));
+  }
+  const w = /[\w$]+$/.exec(msk.slice(0, end));
+  if (!w) return null;
+  const word = w[0], start = end - word.length;
+  if (/^\d/.test(word)) return "Number";
+  const recv = receiverEnd(msk, start);
+  if (recv >= 0) return agreed(members(typeBefore(src, msk, recv, depth + 1)).filter((e) => e.name === word).map((e) => e.ret));
+  return typeOfName(src, msk, word, start, depth);
+}
+
+function typeOfName(src, msk, name, before, depth) {
+  if (name === "true" || name === "false") return "Boolean";
+  if (API.static[name]) return "ns:" + name;
+  const head = msk.slice(0, before), id = name.replace(/\$/g, "\\$");
+  const decl = [...head.matchAll(new RegExp(`\\b(?:const|let|var)\\s+${id}\\s*=(?!=)`, "g"))].pop();
+  if (decl) {
+    const at = decl.index + decl[0].length + msk.slice(decl.index + decl[0].length).search(/\S|$/);
+    if (msk[at] === "[") return "Array";
+    if (msk[at] === "{") return null;
+    const end = msk.slice(at).search(/[;\n]|$/) + at;
+    return typeBefore(src, msk, end, depth + 1);
+  }
+  const loop = [...head.matchAll(new RegExp(`\\bfor\\s*\\(\\s*(?:const|let|var)\\s+${id}\\s+of\\s+([A-Za-z_$][\\w$]*)`, "g"))].pop();
+  if (loop) return typeOfName(src, msk, loop[1], loop.index, depth + 1) === "String" ? "String" : null;
+  const i = p.params.split(",").map((x) => x.trim()).indexOf(name);
+  return i >= 0 ? typeOfValue(p.tests[0][0][i]) : null;
+}
+
+function kindOf(e) {
+  if (e.kind) return e.kind;
+  if (!e.owner && API.static[e.name]) return "ns";
+  return e.params === null ? "prop" : "fn";
+}
+
+function sigHtml(e, active = -1) {
+  const own = e.owner ? `<span class="own">${esc(e.static ? e.owner : e.owner.toLowerCase())}.</span>` : "";
+  const ret = e.ret ? ` → ${esc(e.ret)}` : "";
+  if (e.params === null) return own + esc(e.name) + ret;
+  const parts = splitTop(e.params).map((prm, i, all) => {
+    const on = i === active || (i === all.length - 1 && prm.startsWith("...") && active > i);
+    return on ? `<b>${esc(prm)}</b>` : esc(prm);
+  });
+  return `${own}${esc(e.name)}(${parts.join(", ")})${ret}`;
+}
+
+function dedupe(list) {
+  const byName = new Map();
+  for (const e of list) {
+    if (byName.has(e.name)) byName.get(e.name).all.push(e);
+    else byName.set(e.name, { ...e, all: [e] });
+  }
+  return [...byName.values()];
+}
+
+function wordPool(msk, start, caret) {
+  const seen = new Set(), out = [];
+  const add = (e) => { if (!seen.has(e.name)) { seen.add(e.name); out.push(e); } };
+  userFunctions(msk).forEach(add);
+  API.globals.forEach(add);
+  WORD_ITEMS.forEach(add);
+  for (const m of (msk.slice(0, start) + " " + msk.slice(caret)).matchAll(/(?<![\w$.])[A-Za-z_$][\w$]*/g)) add({ name: m[0], params: null, kind: "var" });
+  return out;
+}
+
+function suggest(forced) {
+  const ta = $("code");
+  const src = ta.value, caret = ta.selectionStart;
+  if (caret !== ta.selectionEnd) return closeAssist();
+  const msk = mask(src);
+  if (caret && msk[caret - 1] !== src[caret - 1]) return closeAssist();
+  const word = (IDENT.exec(msk.slice(0, caret)) || [""])[0];
+  const start = caret - word.length;
+  if (/[\w$]/.test(msk[start - 1] || "")) return closeAssist();
+  const recv = receiverEnd(msk, start);
+  let pool;
+  if (recv >= 0) {
+    pool = dedupe(members(typeBefore(src, msk, recv)));
+  } else {
+    if (!word && !forced) return closeAssist();
+    if (/\b(?:const|let|var|function|class)\s+$/.test(msk.slice(0, start))) return closeAssist();
+    pool = wordPool(msk, start, caret);
+  }
+  const q = word.toLowerCase();
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  const items = [
+    ...pool.filter((e) => e.name.toLowerCase().startsWith(q)).sort(byName),
+    ...pool.filter((e) => !e.name.toLowerCase().startsWith(q) && e.name.toLowerCase().includes(q)).sort(byName)
+  ];
+  if (!items.length || (!forced && items.length === 1 && items[0].name === word)) return closeAssist();
+  Object.assign(assist, { open: true, forced, items, index: 0, start, word });
+  renderAssist();
+}
+
+function closeAssist() {
+  assist.open = false;
+  $("assist").hidden = true;
+}
+
+function hideAssist() {
+  closeAssist();
+  $("sighelp").hidden = true;
+}
+
+function renderAssist() {
+  const q = assist.word.toLowerCase();
+  $("assistList").innerHTML = assist.items.slice(0, 80).map((e, i) => {
+    const kind = kindOf(e);
+    const at = e.name.toLowerCase().indexOf(q);
+    const name = q ? esc(e.name.slice(0, at)) + `<b>${esc(e.name.slice(at, at + q.length))}</b>` + esc(e.name.slice(at + q.length)) : esc(e.name);
+    const label = e.all ? e.all.map((x) => x.owner).join(" · ") : e.label || "";
+    return `<li role="option" data-i="${i}"${i === assist.index ? ' class="on" aria-selected="true"' : ""}><i class="${kind}">${ICONS[kind]}</i><span>${name}</span><small>${esc(label)}</small></li>`;
+  }).join("");
+  renderAssistDoc();
+  $("assist").hidden = false;
+  placeAssist();
+}
+
+function renderAssistDoc() {
+  const e = assist.items[assist.index];
+  const kind = kindOf(e);
+  const doc = $("assistDoc");
+  doc.hidden = kind === "var" || kind === "kw";
+  doc.innerHTML = (e.all || [e]).map((x) => `<code>${sigHtml(x)}</code>${x.doc ? `<p>${esc(x.doc)}</p>` : ""}`).join("");
+  $("assistList").querySelectorAll("li").forEach((li, i) => {
+    li.classList.toggle("on", i === assist.index);
+    li.toggleAttribute("aria-selected", i === assist.index);
+  });
+  $("assistList").children[assist.index]?.scrollIntoView({ block: "nearest" });
+}
+
+function moveAssist(step) {
+  const n = Math.min(assist.items.length, 80);
+  assist.index = (assist.index + step + n) % n;
+  renderAssistDoc();
+  placeAssist();
+}
+
+function acceptAssist() {
+  const e = assist.items[assist.index];
+  const ta = $("code");
+  const kind = kindOf(e);
+  const text = e.name + (kind === "fn" ? (e.params ? "(" : "()") : "");
+  const caret = ta.selectionStart;
+  closeAssist();
+  suppressAssist = true;
+  ta.setSelectionRange(assist.start, caret);
+  insert(text);
+  suppressAssist = false;
+  updateSig();
+}
+
+function updateSig() {
+  const el = $("sighelp");
+  const ta = $("code");
+  el.hidden = true;
+  if (document.activeElement !== ta || ta.selectionStart !== ta.selectionEnd) return;
+  const src = ta.value, caret = ta.selectionStart, msk = mask(src);
+  let depth = 0, open = -1;
+  for (let i = caret - 1; i >= Math.max(0, caret - 2000); i--) {
+    const c = msk[i];
+    if (")]}".includes(c)) depth++;
+    else if ("([{".includes(c)) {
+      if (depth) depth--;
+      else if (c === "(") { open = i; break; }
+      else if (c === "{") break;
+    } else if (c === ";" && !depth) break;
+  }
+  if (open < 0) return;
+  const at = skipWs(msk, open);
+  const m = IDENT.exec(msk.slice(0, at));
+  if (!m || KEYWORDS.has(m[0])) return;
+  const start = at - m[0].length;
+  if (/\bfunction\s*\*?\s*$/.test(msk.slice(0, start))) return;
+  const sigs = lookup(src, msk, start, m[0], 0).filter((e) => e.params !== null);
+  if (!sigs.length) return;
+  let active = 0;
+  depth = 0;
+  for (let i = open + 1; i < caret; i++) {
+    const c = msk[i];
+    if ("([{".includes(c)) depth++;
+    else if (")]}".includes(c)) depth--;
+    else if (c === "," && !depth) active++;
+  }
+  el.innerHTML = sigs.slice(0, 3).map((e) => `<code>${sigHtml(e, active)}</code>`).join("") + (sigs[0].doc ? `<p>${esc(sigs[0].doc)}</p>` : "");
+  el.hidden = false;
+  placeAssist();
+}
+
+let charW = 0;
+document.fonts?.ready.then(() => { charW = 0; });
+
+function caretBox() {
+  const ta = $("code"), cs = getComputedStyle(ta);
+  if (!charW) {
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = `${cs.fontSize} ${cs.fontFamily}`;
+    charW = ctx.measureText("0".repeat(50)).width / 50;
+  }
+  const before = ta.value.slice(0, ta.selectionStart);
+  const row = before.split("\n").length - 1;
+  const col = before.slice(before.lastIndexOf("\n") + 1).replace(/\t/g, "  ").length;
+  const lh = parseFloat(cs.lineHeight);
+  const wrap = ta.parentElement;
+  return {
+    x: wrap.offsetLeft + parseFloat(cs.paddingLeft) + col * charW - ta.scrollLeft,
+    y: wrap.offsetTop + parseFloat(cs.paddingTop) + row * lh - ta.scrollTop,
+    lh
+  };
+}
+
+function place(el, left, box, prefer) {
+  const editor = el.parentElement;
+  const h = el.offsetHeight;
+  const below = box.y + box.lh + 2, above = box.y - h - 2;
+  const fitsBelow = below + h <= editor.clientHeight, fitsAbove = above >= 0;
+  const side = prefer === "below" ? (fitsBelow || !fitsAbove ? "below" : "above") : (fitsAbove || !fitsBelow ? "above" : "below");
+  el.style.left = Math.max(8, Math.min(left, editor.clientWidth - el.offsetWidth - 8)) + "px";
+  el.style.top = Math.max(0, side === "below" ? below : above) + "px";
+  return side;
+}
+
+function placeAssist() {
+  const box = caretBox();
+  const editor = $("code").closest(".editor");
+  if (box.y < -box.lh || box.y > editor.clientHeight) { hideAssist(); return; }
+  const sigSide = $("sighelp").hidden ? null : place($("sighelp"), box.x - 8, box, "above");
+  if (assist.open) place($("assist"), box.x - assist.word.length * charW - 30, box, sigSide === "below" ? "above" : "below");
+}
+
+/* ---------- Formatting ---------- */
+
+const PRETTIER = "https://cdn.jsdelivr.net/npm/prettier@3.3.3/";
+let prettierReady = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = () => { el.remove(); reject(new Error("Couldn't load the formatter. Check your connection and try again.")); };
+    document.head.append(el);
+  });
+}
+
+function loadPrettier() {
+  prettierReady ??= Promise.all(["standalone.js", "plugins/babel.js", "plugins/estree.js"].map((f) => loadScript(PRETTIER + f)))
+    .catch((err) => { prettierReady = null; throw err; });
+  return prettierReady;
+}
+
+async function formatCode() {
+  const ta = $("code");
+  hideAssist();
+  try {
+    await loadPrettier();
+    const { formatted, cursorOffset } = await prettier.formatWithCursor(ta.value, {
+      cursorOffset: ta.selectionStart, parser: "babel", plugins: [prettierPlugins.babel, prettierPlugins.estree]
+    });
+    if (formatted === ta.value) return;
+    const top = ta.scrollTop;
+    ta.focus({ preventScroll: true });
+    ta.setSelectionRange(0, ta.value.length);
+    suppressAssist = true;
+    insert(formatted);
+    suppressAssist = false;
+    ta.setSelectionRange(cursorOffset, cursorOffset);
+    ta.scrollTop = top;
+    syncScroll();
+  } catch (err) {
+    logAppend([{ c: "error", m: "Format failed: " + String(err.message).split("\n")[0] }]);
+    save();
+    renderConsole();
+  }
+}
+
 let saveTimer = null;
 $("code").addEventListener("input", () => {
   s.code = $("code").value;
@@ -1052,10 +1454,39 @@ $("code").addEventListener("input", () => {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { save(); render(); }, 250);
 });
-$("code").addEventListener("scroll", syncScroll);
+$("code").addEventListener("input", (e) => {
+  if (suppressAssist) return;
+  if (e.inputType === "insertText" && /[\w$.]$/.test(e.data || "")) suggest(false);
+  else if (assist.open && e.inputType === "deleteContentBackward") suggest(assist.forced);
+  else closeAssist();
+  updateSig();
+});
+$("code").addEventListener("scroll", () => { syncScroll(); placeAssist(); });
+$("code").addEventListener("blur", hideAssist);
+$("code").addEventListener("mouseup", () => { closeAssist(); updateSig(); });
+$("code").addEventListener("keyup", (e) => {
+  if (!/^(Arrow|Home|End|Page)/.test(e.key)) return;
+  if (assist.open && /^(ArrowLeft|ArrowRight|Home|End)$/.test(e.key)) suggest(assist.forced);
+  updateSig();
+});
+$("assist").addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  const li = e.target.closest("li");
+  if (!li) return;
+  assist.index = Number(li.dataset.i);
+  acceptAssist();
+});
 $("code").addEventListener("keydown", (e) => {
   const ta = e.target;
   const mod = e.metaKey || e.ctrlKey;
+  if (e.key === " " && e.ctrlKey) { e.preventDefault(); suggest(true); return; }
+  if (assist.open) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); moveAssist(e.key === "ArrowDown" ? 1 : -1); return; }
+    if ((e.key === "Enter" && !mod && !e.shiftKey && !e.altKey) || (e.key === "Tab" && !e.shiftKey)) { e.preventDefault(); acceptAssist(); return; }
+    if (e.key === "Escape") { e.preventDefault(); closeAssist(); return; }
+  }
+  if (e.key === "Escape" && !$("sighelp").hidden) { e.preventDefault(); $("sighelp").hidden = true; return; }
+  if (e.code === "KeyF" && e.shiftKey && e.altKey && !mod) { e.preventDefault(); formatCode(); return; }
   if (e.key === "Enter" && mod) { e.preventDefault(); runTests(); return; }
   if (e.key === "/" && mod) { e.preventDefault(); toggleComment(); return; }
   if (e.key === "Tab") {
@@ -1107,6 +1538,7 @@ $("probe").addEventListener("keydown", (e) => {
 
 $("clearBtn").addEventListener("click", () => { s.log = []; save(); renderConsole(); });
 $("runBtn").addEventListener("click", runTests);
+$("formatBtn").addEventListener("click", formatCode);
 $("nextTest").addEventListener("click", revealNext);
 
 let resetArmed = null;
