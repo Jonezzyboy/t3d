@@ -432,7 +432,7 @@ kbd { font: 400 0.85em/1 var(--f-mono); padding: 1px 5px; border: 1px solid var(
       <li>Clear every test in as few runs as you can. Par is one run per test; a general solution can beat it.</li>
       <li>Once the last test passes, runs stop counting. Refactor as much as you like, then share your grid.</li>
       <li>Stuck? Anything you <code>console.log</code> shows up under the test that printed it, and <code>console.table</code>, <code>count</code>, <code>time</code> and <code>assert</code> work too. Type a call like <code>fizzBuzz(15)</code> into the console prompt to try your own inputs; each call is tallied as a probe on your result.</li>
-      <li>Shortcuts: <kbd class="mod">Ctrl ↵</kbd> runs the tests, <kbd class="modslash">Ctrl /</kbd> toggles comments, <kbd>Tab</kbd> and <kbd>Shift Tab</kbd> indent, <kbd>Shift Alt F</kbd> formats. Suggestions pop up as you type; <kbd>Ctrl Space</kbd> brings them back, and <kbd>Tab</kbd> or <kbd>Enter</kbd> picks one. Click a line number in an error to jump to it.</li>
+      <li>Shortcuts: <kbd class="mod">Ctrl ↵</kbd> runs the tests, <kbd class="modslash">Ctrl /</kbd> toggles comments, <kbd>Tab</kbd> and <kbd>Shift Tab</kbd> indent, <kbd class="modfmt">Shift Alt F</kbd> formats. Suggestions pop up as you type; <kbd>Ctrl Space</kbd> brings them back, and <kbd>Tab</kbd> or <kbd>Enter</kbd> picks one. Click a line number in an error to jump to it.</li>
     </ol>
   </details>
 </div>
@@ -1576,6 +1576,8 @@ $("todayBtn").addEventListener("click", () => load(todayNum()));
 if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) {
   document.querySelectorAll(".mod").forEach((k) => k.textContent = "⌘ ↵");
   document.querySelectorAll(".modslash").forEach((k) => k.textContent = "⌘ /");
+  document.querySelectorAll(".modfmt").forEach((k) => k.textContent = "⇧ ⌥ F");
+  $("formatBtn").title = "Format (⇧ ⌥ F)";
 }
 
 function start(data) {
