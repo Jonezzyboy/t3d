@@ -1,4 +1,5 @@
 // Kata pool and daily schedule for T3D. Each kata's ref must pass its own tests.
+// blocked lists built-ins the worker replaces with a throw; "(arg)" blocks only calls that pass that argument.
 
 const LEGACY_KATAS = [
   {
@@ -15,6 +16,7 @@ const LEGACY_KATAS = [
   {
     id: "leap-year", title: "Leap Year", fn: "isLeapYear", params: "year", file: "leap-year.js",
     brief: "Return <code>true</code> if <code>year</code> is a leap year in the Gregorian calendar: divisible by 4, except centuries, which must also be divisible by 400.",
+    blocked: ["Date", "Temporal"],
     tests: [[[2023], false], [[2024], true], [[1996], true], [[1900], false], [[2000], true], [[2100], false], [[2400], true]],
     ref: `function isLeapYear(year) {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
@@ -255,6 +257,7 @@ const KATAS = LEGACY_KATAS.concat([
   {
     id: "flatten", title: "Flatten", fn: "flatten", params: "arr",
     brief: "Flatten arrays nested to any depth into one flat array, keeping the order.",
+    blocked: ["Array.prototype.flat", "Array.prototype.flatMap"],
     tests: [[[[]], []], [[[1, 2]], [1, 2]], [[[1, [2]]], [1, 2]], [[[[1, [2, [3]]], 4]], [1, 2, 3, 4]], [[[[], [[]]]], []], [[[[[[["deep"]]]], "end"]], ["deep", "end"]]],
     ref: `function flatten(arr) {
   return arr.reduce((out, x) => out.concat(Array.isArray(x) ? flatten(x) : x), []);
@@ -520,6 +523,7 @@ const KATAS = LEGACY_KATAS.concat([
   {
     id: "count-bits", title: "Counting Bits", fn: "countBits", params: "n",
     brief: "Return how many 1s appear when the non-negative integer <code>n</code> is written in binary.",
+    blocked: ["Number.prototype.toString(radix)", "BigInt.prototype.toString(radix)"],
     tests: [[[0], 0], [[1], 1], [[2], 1], [[7], 3], [[8], 1], [[1234], 5], [[2147483647], 31], [[4294967296], 1]],
     ref: `function countBits(n) {
   let count = 0;
@@ -530,6 +534,7 @@ const KATAS = LEGACY_KATAS.concat([
   {
     id: "days-in-month", title: "Days in Month", fn: "daysInMonth", params: "year, month",
     brief: "Return how many days are in <code>month</code> (1 to 12) of <code>year</code> in the Gregorian calendar.",
+    blocked: ["Date", "Temporal"],
     tests: [[[2023, 1], 31], [[2023, 4], 30], [[2023, 2], 28], [[2024, 2], 29], [[1900, 2], 28], [[2000, 2], 29], [[2023, 12], 31], [[2023, 9], 30]],
     ref: `function daysInMonth(year, month) {
   if (month === 2) return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
@@ -707,6 +712,7 @@ const GENERATORS = [
       return {
         title: `Base ${base}`, fn, params: "n",
         brief: `Write a non-negative integer in base ${base} and return it as a string.${base > 10 ? ' Digits above 9 are lowercase letters, so ten is <code>"a"</code>.' : ""}`,
+        blocked: ["Number.prototype.toString(radix)", "BigInt.prototype.toString(radix)"],
         solve: (n) => n.toString(base),
         inputs: [[0], [1], [base - 1], [base], [base + 1], [base * base], [255], [1000], [between(rng, 5000, 99999)]],
         ref: `function ${fn}(n) {
@@ -869,7 +875,7 @@ function buildGenerated(genId, day) {
     seen.add(key);
     tests.push([args, spec.solve(...args)]);
   }
-  return { id: `${g.id}-${day}`, title: spec.title, fn: spec.fn, params: spec.params, brief: spec.brief, tests, ref: spec.ref };
+  return { id: `${g.id}-${day}`, title: spec.title, fn: spec.fn, params: spec.params, brief: spec.brief, blocked: spec.blocked, tests, ref: spec.ref };
 }
 
 function kataFor(day) {
