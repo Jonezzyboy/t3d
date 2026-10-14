@@ -519,7 +519,20 @@ function highlight(src, badLines = new Set()) {
 
 // Joined onto the first line of the worker source so the player's line numbers stay accurate.
 // It is flattened to one line, so every statement needs its semicolon and no // comments.
-function prelude() {
+function prelude(blocked) {
+  blocked.forEach(function (path) {
+    var m = path.match(/^(.*?)(\(\w+\))?$/), parts = m[1].split("."), key = parts.pop();
+    var owner = parts.reduce(function (o, k) { return o && o[k]; }, self);
+    if (!owner || !(key in owner)) return;
+    var real = owner[key];
+    var stop = function () {
+      if (m[2] && arguments[0] === undefined) return real.apply(this, arguments);
+      var err = new Error(key + (m[2] || "") + " is off-limits in this kata.");
+      if (Error.captureStackTrace) Error.captureStackTrace(err, stop);
+      throw err;
+    };
+    owner[key] = typeof real === "function" ? stop : new Proxy(real, { get: stop });
+  });
   var T = self.__t3d = { logs: [], current: -1, counts: {}, timers: {}, depth: 0, capped: false, raw: new WeakMap() };
   var insp = T.insp = function (v, d, seen) {
     d = d || 0; seen = seen || []; v = T.raw.get(v) || v;
@@ -665,7 +678,7 @@ function execute(code, p, payload) {
   return new Promise((resolve) => {
     const userLines = code.split("\n").length;
     const probe = payload.probe ? "\n;self.__probe = function () { return (\n" + payload.probe + "\n); };" : "";
-    const src = "(" + String(prelude).replace(/\n\s*/g, " ") + ")();" + code + "\n;" + probe +
+    const src = "(" + String(prelude).replace(/\n\s*/g, " ") + ")(" + JSON.stringify(p.blocked || []) + ");" + code + "\n;" + probe +
       "\n;(" + harness + ")(" + JSON.stringify(p.fn) + ", typeof " + p.fn + " === 'function' ? " + p.fn + " : undefined, " + userLines + ", " + fmt + ");\n";
     let url, worker;
     try {
@@ -816,7 +829,7 @@ function render() {
 
   $("title").textContent = p.title;
   $("sig").innerHTML = `<b>${p.fn}</b>(${esc(p.params)})`;
-  $("brief").innerHTML = p.brief;
+  $("brief").innerHTML = p.brief + (p.blocked ? ` Off-limits: ${[...new Set(p.blocked.map((b) => b.split(".").pop()))].map((b) => `<code>${esc(b)}</code>`).join(", ")}.` : "");
   $("fileName").textContent = p.file || p.id.replace(/-\d+$/, "") + ".js";
 
   const total = p.tests.length;
