@@ -293,8 +293,12 @@ const KATAS = LEGACY_KATAS.concat([
   },
   {
     id: "binary-search", title: "Binary Search", fn: "binarySearch", params: "sorted, target",
-    brief: "Find <code>target</code> in an ascending array and return its index, or <code>-1</code> if it isn't there. Halve the search each step.",
-    tests: [[[[], 1], -1], [[[1], 1], 0], [[[1, 3, 5, 7], 5], 2], [[[1, 3, 5, 7], 4], -1], [[[1, 3, 5, 7, 9, 11], 11], 5], [[[1, 3, 5, 7, 9, 11], 1], 0], [[[1, 3, 5, 7, 9, 11], 12], -1]],
+    brief: "Find <code>target</code> in an ascending array and return its index, or <code>-1</code> if it isn't there. Halve the search each step: the tests count how many items of <code>sorted</code> you read.",
+    tests: [[[[], 1], -1], [[[1], 1], 0], [[[1, 3, 5, 7], 5], 2], [[[1, 3, 5, 7], 4], -1], [[[1, 3, 5, 7, 9, 11], 11], 5], [[[1, 3, 5, 7, 9, 11], 1], 0], [[[1, 3, 5, 7, 9, 11], 12], -1],
+      [[Array.from({ length: 1000 }, (_, i) => 2 * i + 1), 1501], 750, "[1, 3, 5, … 1999], 1501"],
+      [[Array.from({ length: 1000 }, (_, i) => 2 * i + 1), 1998], -1, "[1, 3, 5, … 1999], 1998"]],
+    // Room for a few reads per halving; a linear scan of the big tests reads hundreds.
+    readLimit: { arg: 0, max: (n) => 4 * Math.ceil(Math.log2(n + 1)) },
     ref: `function binarySearch(sorted, target) {
   let lo = 0, hi = sorted.length - 1;
   while (lo <= hi) {

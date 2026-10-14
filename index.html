@@ -520,9 +520,9 @@ function highlight(src, badLines = new Set()) {
 // Joined onto the first line of the worker source so the player's line numbers stay accurate.
 // It is flattened to one line, so every statement needs its semicolon and no // comments.
 function prelude() {
-  var T = self.__t3d = { logs: [], current: -1, counts: {}, timers: {}, depth: 0, capped: false };
+  var T = self.__t3d = { logs: [], current: -1, counts: {}, timers: {}, depth: 0, capped: false, raw: new WeakMap() };
   var insp = T.insp = function (v, d, seen) {
-    d = d || 0; seen = seen || [];
+    d = d || 0; seen = seen || []; v = T.raw.get(v) || v;
     if (v === undefined) return "undefined";
     if (v === null) return "null";
     var t = typeof v;
@@ -634,9 +634,24 @@ function harness(name, f, userLines, fmt) {
     const results = e.data.tests.map((t, i) => {
       T.current = i;
       T.depth = 0;
+      const reads = { n: 0 };
+      if (t.limit) {
+        const target = t.args[t.limit.arg];
+        const counted = new Proxy(target, {
+          get: (o, k, r) => {
+            if (typeof k === "string" && /^\d+$/.test(k)) reads.n++;
+            return Reflect.get(o, k, r);
+          }
+        });
+        T.raw.set(counted, target);
+        t.args[t.limit.arg] = counted;
+      }
       try {
         const actual = f(...t.args);
         const shown = fmt(actual);
+        if (t.limit && reads.n > t.limit.max) {
+          return { ok: false, error: `Read ${t.limit.name} ${reads.n} times; halving the search needs no more than ${t.limit.max}.`, line: 0 };
+        }
         return { ok: typeof actual === typeof t.expected && shown === fmt(t.expected), actual: shown };
       } catch (err) {
         return describe(err);
@@ -669,7 +684,12 @@ function execute(code, p, payload) {
       const line = e.lineno && e.lineno <= userLines ? e.lineno : 0;
       finish(payload.probe && !line ? { probe: { error: "Couldn't read that call. " + message } } : { fatal: message, line });
     };
-    worker.postMessage(payload.probe ? { probe: true } : { tests: payload.tests.map(([args, expected]) => ({ args, expected })) });
+    const limit = p.readLimit && ((args) => ({
+      arg: p.readLimit.arg,
+      name: p.params.split(",")[p.readLimit.arg].trim(),
+      max: p.readLimit.max(args[p.readLimit.arg].length)
+    }));
+    worker.postMessage(payload.probe ? { probe: true } : { tests: payload.tests.map(([args, expected]) => ({ args, expected, limit: limit && limit(args) })) });
   });
 }
 
